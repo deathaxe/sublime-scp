@@ -53,6 +53,7 @@ class SCPClient:
             self.host = client["host"]
             self.port = client.get("port", 22)
             self.user = client.get("user", "guest")
+            self.agent = client.get("agent", False)
             self.passwd = client.get("passwd", "")
             self.remote_path = client.get("path", "/")
 
@@ -67,12 +68,13 @@ class SCPClient:
     def to_scp_url(self, path):
         return "%s@%s:%s" % (self.user, self.host, self.to_remote_path(path))
 
-    def execute(self, args, on_done, on_error):
+    def auth(self):
+        return ["-agent"] if self.agent else ["-pw", self.passwd]
 
-        call(
-            [self.plink, "%s@%s:%d" % (self.user, self.host, self.port), "-pw", self.passwd] + args,
-            on_done, on_error
-        )
+    def execute(self, args, on_done, on_error):
+        call([self.plink, "%s@%s:%d" % (self.user, self.host, self.port)] +
+             self.auth() + args,
+             on_done, on_error)
 
     def mkdir(self, path):
         def on_done():
@@ -91,10 +93,10 @@ class SCPClient:
         def on_error(msg):
             sublime.error_message(str(msg))
 
-        call([
-            self.pscp, "-scp", "-batch", "-q", "-pw", self.passwd,
-            file_name, self.to_scp_url(file_name)
-        ], on_done, on_error)
+        call([self.pscp, "-scp", "-batch", "-q"] +
+             self.auth() +
+             [file_name, self.to_scp_url(file_name)],
+             on_done, on_error)
 
     def get(self, file_name):
 
@@ -104,10 +106,10 @@ class SCPClient:
         def on_error(msg):
             sublime.error_message(msg)
 
-        call([
-            self.pscp, "-scp", "-batch", "-q", "-pw", self.passwd,
-            self.to_scp_url(file_name), file_name
-        ], on_done, on_error)
+        call([self.pscp, "-scp", "-batch", "-q"] +
+             self.auth() +
+             [self.to_scp_url(file_name), file_name],
+             on_done, on_error)
 
 
 class ScpMkFileDir(sublime_plugin.TextCommand):
