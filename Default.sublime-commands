@@ -1,25 +1,7 @@
 [
-    {
-        "caption": "SCP: Make Remote Dir",
-        "command": "scp_mk_file_dir"
-    },
-    {
-        "caption": "SCP: Download File",
-        "command": "scp_get_file"
-    },
-    {
-        "caption": "SCP: Upload File",
-        "command": "scp_put_file"
-    },
-    {
-        "caption": "SCP: Enable upload after saving",
-        "command": "set_setting",
-        "args": {"setting": "scp_auto_upload", "value": true}
-    },
-    {
-        "caption": "SCP: Disable upload after saving",
-        "command": "set_setting",
-        "args": {"setting": "scp_auto_upload", "value": false}
-    },
-
+    { "caption": "SCP: Connect", "command": "scp_connect" },
+    { "caption": "SCP: Disconnect", "command": "scp_disconnect" },
+    { "caption": "SCP: Download file", "command": "scp_get" },
+    { "caption": "SCP: Upload file", "command": "scp_put" },
+    { "caption": "SCP: Delete remote file", "command": "scp_del" },
 ]

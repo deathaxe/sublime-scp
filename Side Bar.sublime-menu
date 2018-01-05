@@ -1,0 +1,18 @@
+[
+    { "caption": "-" },
+    {
+        "caption": "SCP",
+        "children":
+        [
+            { "caption": "Connect", "command": "scp_connect", "args": {"paths": []} },
+            { "caption": "Disconnect", "command": "scp_disconnect", "args": {"paths": []} },
+            { "caption": "-" },
+            { "caption": "Download", "command": "scp_get", "args": {"paths": []} },
+            { "caption": "Upload", "command": "scp_put", "args": {"paths": []} },
+            { "caption": "-" },
+            { "caption": "Delete remote", "command": "scp_del", "args": {"paths": []} },
+            { "caption": "-" },
+            { "caption": "Map to remote...", "command": "scp_map_to_remote", "args": {"paths": []} },
+        ]
+    }
+]
