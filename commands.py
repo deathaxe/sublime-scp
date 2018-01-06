@@ -38,7 +38,7 @@ class _ScpWindowCommand(sublime_plugin.WindowCommand):
         return [name] if name and os.path.exists(name) else []
 
 
-class ScpMapToRemote(_ScpWindowCommand):
+class ScpMapToRemoteCommand(_ScpWindowCommand):
 
     def is_visible(self, paths=None):
         """Menu is visible if no mapping exists already."""
@@ -54,7 +54,7 @@ class ScpMapToRemote(_ScpWindowCommand):
             self.window.active_view().assign_syntax("JSON.sublime-syntax")
 
 
-class ScpConnect(_ScpWindowCommand):
+class ScpConnectCommand(_ScpWindowCommand):
 
     def __init__(self, window):
         super().__init__(window)
@@ -85,14 +85,14 @@ class ScpConnect(_ScpWindowCommand):
         self.thread.start()
 
 
-class ScpDisconnect(_ScpWindowCommand):
+class ScpDisconnectCommand(_ScpWindowCommand):
 
     def run(self, paths=None):
         for path in self.ensure_paths(paths):
             scpfolder.disconnect(path)
 
 
-class ScpGet(_ScpWindowCommand):
+class ScpGetCommand(_ScpWindowCommand):
 
     def run(self, paths=None):
         for path in self.ensure_paths(paths):
@@ -107,7 +107,7 @@ class ScpGet(_ScpWindowCommand):
                 sublime.error_message(str(error))
 
 
-class ScpPut(_ScpWindowCommand):
+class ScpPutCommand(_ScpWindowCommand):
 
     def run(self, paths=None):
         for path in self.ensure_paths(paths):
@@ -123,7 +123,7 @@ class ScpPut(_ScpWindowCommand):
                 raise
 
 
-class ScpDel(_ScpWindowCommand):
+class ScpDelCommand(_ScpWindowCommand):
 
     def run(self, paths=None):
         for path in self.ensure_paths(paths):
