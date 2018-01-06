@@ -17,14 +17,17 @@ class ScpNotConnectedError(Exception):
 
 def connect(path):
     try:
-        if sys.platform == "win32":
-            client = SCPFolder(path.lower())
-        else:
-            client = SCPFolder(path)
-        connections.append(client)
-        return client
-    except:
-        return False
+        return connection(path)
+    except ScpNotConnectedError:
+        try:
+            if sys.platform == "win32":
+                client = SCPFolder(path.lower())
+            else:
+                client = SCPFolder(path)
+            connections.append(client)
+            return client
+        except:
+            return False
 
 
 def disconnect(path):
