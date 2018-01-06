@@ -17,7 +17,10 @@ class ScpNotConnectedError(Exception):
 
 def connect(path):
     try:
-        client = SCPFolder(path)
+        if sys.platform == "win32":
+            client = SCPFolder(path.lower())
+        else:
+            client = SCPFolder(path)
         connections.append(client)
         return client
     except:
@@ -25,25 +28,27 @@ def connect(path):
 
 
 def disconnect(path):
-    while True:
-        client = connection(path)
-        if path:
-            connections.remove(client)
-            return
+    try:
+        while True:
+            connections.remove(connection(path))
+    except (IndexError, ScpNotConnectedError):
+        pass
 
 
 def connection(path):
     if path:
+        p = path.lower() if sys.platform == "win32" else path
         for client in connections:
-            if path.startswith(client.root):
+            if p.startswith(client.root):
                 return client
     raise ScpNotConnectedError("No SCP connection for %s!" % path)
 
 
 def is_connected(path):
     if path:
+        p = path.lower() if sys.platform == "win32" else path
         for client in connections:
-            if path.startswith(client.root):
+            if p.startswith(client.root):
                 return True
     return False
 
