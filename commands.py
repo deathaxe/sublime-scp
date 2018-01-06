@@ -6,6 +6,7 @@ import sublime_plugin
 
 from .core import scpfolder
 from .core.progress import Progress
+from .core import task
 
 TEMPLATE = """
 {
@@ -96,13 +97,7 @@ class ScpCancelCommand(_ScpWindowCommand):
 
     def is_enabled(self, paths=None):
         """Enable command if an operation is in progress."""
-        def busy(path):
-            try:
-                conn = scpfolder.connection(path)
-            except scpfolder.ScpNotConnectedError:
-                conn = False
-            return conn and conn.proc and conn.proc.poll()
-        return any(busy(path) for path in self.ensure_paths(paths))
+        return task.busy()
 
     def run(self, paths=None):
         for path in self.ensure_paths(paths):
