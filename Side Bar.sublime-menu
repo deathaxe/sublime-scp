@@ -13,6 +13,7 @@
             { "caption": "Delete remote", "command": "scp_del", "args": {"paths": []} },
             { "caption": "-" },
             { "caption": "Map to remote...", "command": "scp_map_to_remote", "args": {"paths": []} },
+            { "caption": "Abort", "command": "scp_cancel", "args": {"paths": []} },
         ]
     }
 ]

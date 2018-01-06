@@ -14,6 +14,9 @@ connections = []
 class ScpNotConnectedError(Exception):
     pass
 
+class ScpAbortError(Exception):
+    pass
+
 
 def connect(path):
     try:
@@ -97,6 +100,10 @@ class SCPFolder(SCPClient):
         if path == self.root:
             return os.path.dirname(self.remote_path).replace("\\", "/")
         return self.to_remote_path(os.path.dirname(path))
+
+    def cancel(self):
+        super().cancel()
+        raise ScpAbortError("Aborted by user!")
 
     def remove(self, path):
         super().remove(self.to_remote_path(path))

@@ -4,4 +4,5 @@
     { "caption": "SCP: Download file", "command": "scp_get" },
     { "caption": "SCP: Upload file", "command": "scp_put" },
     { "caption": "SCP: Delete remote file", "command": "scp_del" },
+    { "caption": "SCP: Abort", "command": "scp_cancel" },
 ]
