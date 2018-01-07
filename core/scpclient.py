@@ -52,7 +52,7 @@ class SCPClient(object):
         if not self.conn_time:
             raise Exception("SCP connection failed!")
 
-    def _to_scp_url(self, remote):
+    def scp_url(self, remote):
         return "%s@%s:%s" % (self.user, self.host, remote)
 
     def server_time(self):
@@ -71,21 +71,21 @@ class SCPClient(object):
         task.call(args, listener, self.root)
 
     def lsdir(self, remote, listener):
-        args = self.pscp + ["-ls", self._to_scp_url(remote)]
+        args = self.pscp + ["-ls", self.scp_url(remote)]
         task.call(args, listener, self.root)
 
     def putdir(self, local, remote, listener):
-        args = self.pscp + ["-r", local, self._to_scp_url(remote)]
+        args = self.pscp + ["-r", local, self.scp_url(remote)]
         task.call(args, listener, self.root)
 
     def getdir(self, remote, local, listener):
-        args = self.pscp + ["-r", self._to_scp_url(remote), local]
+        args = self.pscp + ["-r", self.scp_url(remote), local]
         task.call(args, listener, self.root)
 
     def putfile(self, local, remote, listener):
-        args = self.pscp + ["-q", local, self._to_scp_url(remote)]
+        args = self.pscp + ["-q", local, self.scp_url(remote)]
         task.call(args, listener, self.root)
 
     def getfile(self, remote, local, listener):
-        args = self.pscp + ["-q", self._to_scp_url(remote), local]
+        args = self.pscp + ["-q", self.scp_url(remote), local]
         task.call(args, listener, self.root)
