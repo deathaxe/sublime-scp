@@ -27,8 +27,9 @@ class Task(object):
     It is designed to be run from within the TaskQueue thread.
     """
 
-    def __init__(self, cmd, listener=None, env=None):
+    def __init__(self, cmd, listener=None, cwd=None, env=None):
         self.cmd = cmd
+        self.cwd = cwd
         self.env = env
         self.listener = listener
         self.proc = None
@@ -52,8 +53,12 @@ class Task(object):
             self.cmd,
             stdout=subprocess.PIPE,
             startupinfo=startupinfo,
+            cwd=self.cwd,
             env=proc_env,
             universal_newlines=True)
+
+        if not self.listener:
+            return self.exit_code()
 
         self.listener.on_start(self)
 
@@ -146,8 +151,8 @@ def busy():
     return _tasks.busy()
 
 
-def call(cmd, listener=None, env=None):
-    _tasks.call(Task(cmd, listener, env))
+def call(cmd, listener=None, cwd=None, env=None):
+    _tasks.call(Task(cmd, listener, cwd, env))
 
 
 def cancel_all():

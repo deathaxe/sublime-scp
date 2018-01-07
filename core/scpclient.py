@@ -21,7 +21,23 @@ def exec(args):
 
 class SCPClient(object):
 
-    def __init__(self, host, port=22, user="guest", passwd=None):
+    def __init__(self, host, port=22, user="guest", passwd=None, root=None):
+        """Initialize an SCPClient object.
+
+        Arguments:
+            host (string):
+                The SSH/SCP host to connect to
+            port (int):
+                The port to use for connection (default: 22)
+            user (string):
+                The user name to use for connection (default "guest")
+            passwd (string):
+                The optional password to use for connection
+            root (string):
+                The local root directory for all operations, which is used as
+                working directory and base for all relative path calulations.
+        """
+        self.root = root
         self.host = host
         self.port = port
         self.user = user
@@ -48,28 +64,28 @@ class SCPClient(object):
 
     def remove(self, remote, listener):
         args = self.plink + ["rm", "-r", remote]
-        task.call(args, listener)
+        task.call(args, listener, self.root)
 
     def mkdir(self, remote, listener):
         args = self.plink + ["mkdir", "-p", remote]
-        task.call(args, listener)
+        task.call(args, listener, self.root)
 
     def lsdir(self, remote, listener):
         args = self.pscp + ["-ls", self._to_scp_url(remote)]
-        task.call(args, listener)
+        task.call(args, listener, self.root)
 
     def putdir(self, local, remote, listener):
         args = self.pscp + ["-r", local, self._to_scp_url(remote)]
-        task.call(args, listener)
+        task.call(args, listener, self.root)
 
     def getdir(self, remote, local, listener):
         args = self.pscp + ["-r", self._to_scp_url(remote), local]
-        task.call(args, listener)
+        task.call(args, listener, self.root)
 
     def putfile(self, local, remote, listener):
         args = self.pscp + ["-q", local, self._to_scp_url(remote)]
-        task.call(args, listener)
+        task.call(args, listener, self.root)
 
     def getfile(self, remote, local, listener):
         args = self.pscp + ["-q", self._to_scp_url(remote), local]
-        task.call(args, listener)
+        task.call(args, listener, self.root)

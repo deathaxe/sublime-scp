@@ -71,17 +71,18 @@ def root_dir(file_name):
 class SCPFolder(SCPClient):
 
     def __init__(self, path):
-        self.root = root_dir(path)
-        if not self.root:
+        root = root_dir(path)
+        if not root:
             raise ValueError("Not within a mapped folder")
-        with open(os.path.join(self.root, ".scp")) as file:
+        with open(os.path.join(root, ".scp")) as file:
             client = sublime.decode_value(file.read())
             SCPClient.__init__(
                 self,
                 client["host"],
                 client.get("port", 22),
                 client.get("user", "guest"),
-                client.get("passwd", None)
+                client.get("passwd", None),
+                root
             )
             self.remote_path = client.get("path", "/")
 
