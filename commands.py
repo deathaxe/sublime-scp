@@ -139,29 +139,27 @@ class ScpGetCommand(_ScpWindowCommand):
 class ScpPutCommand(_ScpWindowCommand):
 
     def run(self, paths=None):
-        file_listener = SCPCopyFileListener()
         dir_listener = SCPCopyDirListener()
-        mkdir_listener = SCPMkDirListener()
-        dirnames = set()
 
+        groups = {}
         for path in self.ensure_paths(paths):
             try:
-                if os.path.isfile(path):
-                    conn = scpfolder.connection(path)
-                    # ensure remote directory exists if the first file
-                    # of a directory is copied
-                    dirname = os.path.dirname(path)
-                    if dirname not in dirnames:
-                        dirnames.add(dirname)
-                        conn.mkdir(dirname, mkdir_listener)
-                    conn.putfile(path, file_listener)
+                conn = scpfolder.connection(path)
+                if conn.is_root(path):
+                    files = (
+                        os.path.join(path, f)
+                        for f in os.listdir(path)
+                        if f not in ('.', '..', '.scp', '.git')
+                    )
+                    groups.setdefault(conn, []).extend(files)
                 else:
-                    scpfolder.connection(path).putdir(path, dir_listener)
+                    groups.setdefault(conn, []).append(path)
             except scpfolder.SCPNotConnectedError:
                 pass
-            except Exception as error:
-                sublime.error_message(str(error))
-                raise
+
+        for conn, paths in groups.items():
+            # TODO: built possibly missing remote paths
+            conn.putpaths(paths, dir_listener)
 
 
 class ScpDelCommand(_ScpWindowCommand):

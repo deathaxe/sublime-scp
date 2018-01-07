@@ -86,7 +86,7 @@ class SCPFolder(SCPClient):
             self.remote_path = client.get("path", "/")
 
     def to_remote_path(self, path):
-        if path == self.root:
+        if self.is_root(path):
             return self.remote_path
         remote_path = os.path.join(
             self.remote_path, os.path.relpath(path, self.root)
@@ -95,10 +95,14 @@ class SCPFolder(SCPClient):
             raise ValueError("Invalid path!")
         return remote_path
 
-    def to_remote_parent(self, path):
-        if path == self.root:
-            return os.path.dirname(self.remote_path).replace("\\", "/")
-        return self.to_remote_path(os.path.dirname(path))
+    def relpath(self, path):
+        return os.path.relpath(path, self.root)
+
+    def is_root(self, path):
+        return os.path.relpath(path, self.root) == '.'
+
+    def is_child(self, path):
+        return not self.relpath(path).startswith("..")
 
     def remove(self, path, listener):
         super().remove(self.to_remote_path(path), listener)
@@ -116,7 +120,18 @@ class SCPFolder(SCPClient):
         super().getfile(self.to_remote_path(path), path, listener)
 
     def putdir(self, path, listener):
-        super().putdir(path, self.to_remote_parent(path), listener)
+        parent = os.path.dirname(path)
+        super().putdir(path, self.to_remote_path(parent), listener)
 
     def getdir(self, path, listener):
-        super().getdir(self.to_remote_path(path), os.path.dirname(path), listener)
+        parent = os.path.dirname(path)
+        super().getdir(self.to_remote_path(path), parent, listener)
+
+    def putpaths(self, paths, listener):
+        local_paths = []
+        for p in paths:
+            relpath = self.relpath(p)
+            if not relpath.startswith(".."):
+                local_paths.append(relpath)
+        if local_paths:
+            super().putpaths(local_paths, self.remote_path, listener)

@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 
@@ -73,4 +74,21 @@ class SCPClient(object):
 
     def getfile(self, remote, local, listener):
         args = self.pscp + ["-q", self.scp_url(remote), local]
+        task.call(args, listener, self.root)
+
+    def putpaths(self, paths, remote, listener):
+        """Copy a list of local files and directories to server.
+
+        Arguments:
+            path (iterable):
+                An iterable with the paths of all
+                local files and dirs to copy.
+            remote (string):
+                The destination remote directory path
+                to copy all files ad dirs to.
+            listener (TaskListener):
+                An callback class which displays
+                the output of the SCP process.
+        """
+        args = self.pscp + ["-r"] + paths + [self.scp_url(remote)]
         task.call(args, listener, self.root)
