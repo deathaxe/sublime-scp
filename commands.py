@@ -112,9 +112,16 @@ class ScpCancelCommand(_ScpWindowCommand):
 class ScpGetCommand(_ScpWindowCommand):
 
     def run(self, paths=None):
+        dirnames = set()
         for path in self.ensure_paths(paths):
             try:
                 if os.path.isfile(path):
+                    # ensure local directory exists if the first file
+                    # of a directory is copied
+                    dirname = os.path.dirname(path)
+                    if dirname not in dirnames:
+                        dirnames.add(dirname)
+                        os.makedirs(dirname, exist_ok=True)
                     scpfolder.connection(path).getfile(path)
                 else:
                     scpfolder.connection(path).getdir(path)
@@ -127,10 +134,18 @@ class ScpGetCommand(_ScpWindowCommand):
 class ScpPutCommand(_ScpWindowCommand):
 
     def run(self, paths=None):
+        dirnames = set()
         for path in self.ensure_paths(paths):
             try:
                 if os.path.isfile(path):
-                    scpfolder.connection(path).putfile(path)
+                    conn = scpfolder.connection(path)
+                    # ensure remote directory exists if the first file
+                    # of a directory is copied
+                    dirname = os.path.dirname(path)
+                    if dirname not in dirnames:
+                        dirnames.add(dirname)
+                        conn.mkdir(dirname)
+                    conn.putfile(path)
                 else:
                     scpfolder.connection(path).putdir(path)
             except scpfolder.ScpNotConnectedError:
