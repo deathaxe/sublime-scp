@@ -100,13 +100,8 @@ class ScpCancelCommand(_ScpWindowCommand):
         return task.busy()
 
     def run(self, paths=None):
-        for path in self.ensure_paths(paths):
-            try:
-                scpfolder.connection(path).cancel()
-            except scpfolder.ScpNotConnectedError:
-                pass
-            except Exception as error:
-                sublime.error_message(str(error))
+        """Abort all queued and active opera"""
+        task.cancel_all()
 
 
 class ScpGetCommand(_ScpWindowCommand):

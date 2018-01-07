@@ -110,9 +110,6 @@ class SCPClient(object):
     def _to_scp_url(self, remote):
         return "%s@%s:%s" % (self.user, self.host, remote)
 
-    def cancel(self):
-        task.cancel_all()
-
     def server_time(self):
         args = self.plink + ["date"]
         out, err, ret = exec(args)

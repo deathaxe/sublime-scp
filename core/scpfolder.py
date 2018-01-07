@@ -101,10 +101,6 @@ class SCPFolder(SCPClient):
             return os.path.dirname(self.remote_path).replace("\\", "/")
         return self.to_remote_path(os.path.dirname(path))
 
-    def cancel(self):
-        super().cancel()
-        raise ScpAbortError("Aborted by user!")
-
     def remove(self, path):
         super().remove(self.to_remote_path(path))
 
