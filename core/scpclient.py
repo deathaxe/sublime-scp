@@ -49,11 +49,15 @@ class SCPClient(object):
         return "%s@%s:%s" % (self.user, self.host, remote)
 
     def remove(self, remote, listener):
-        args = self.plink + ["rm", "-r", remote]
+        if isinstance(remote, str):
+            remote = [remote]
+        args = self.plink + ["rm -r %s;" % r for r in remote]
         task.call(args, listener, self.root)
 
     def mkdir(self, remote, listener):
-        args = self.plink + ["mkdir", "-p", remote]
+        if isinstance(remote, str):
+            remote = [remote]
+        args = self.plink + ["mkdir -p %s;" % r for r in remote]
         task.call(args, listener, self.root)
 
     def lsdir(self, remote, listener):
