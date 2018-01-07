@@ -128,10 +128,30 @@ class SCPFolder(SCPClient):
         super().getdir(self.to_remote_path(path), parent, listener)
 
     def putpaths(self, paths, listener):
-        local_paths = []
+        """
+        Put several folders and files to the remote host.
+
+        The following steps are performed:
+        1. The `paths` are grouped by single directories as a single `pscp`
+           call has only one destination argument.
+        2. The remote paths are created with a single mkdir command to ensure
+           all destinations exist on the host before trying to copy files.
+        3. The sub directories and files for each remote path are pushed
+           separately as this is the way pscp can handle them only.
+        """
+
+        # group by remote path
+        groups = {}
         for p in paths:
-            relpath = self.relpath(p)
-            if not relpath.startswith(".."):
-                local_paths.append(relpath)
-        if local_paths:
-            super().putpaths(local_paths, self.remote_path, listener)
+            if os.path.isfile(p):
+                remote = self.to_remote_path(os.path.dirname(p))
+            else:
+                remote = self.to_remote_path(p)
+            groups.setdefault(remote, []).append(self.relpath(p))
+
+        # create remote directories
+        super().mkdir([p for p in sorted(groups)], None)
+
+        # push each directory to remote
+        for remote, local in groups.items():
+            super().putpaths(local, remote, listener)

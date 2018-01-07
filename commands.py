@@ -139,8 +139,6 @@ class ScpGetCommand(_ScpWindowCommand):
 class ScpPutCommand(_ScpWindowCommand):
 
     def run(self, paths=None):
-        dir_listener = SCPCopyDirListener()
-
         groups = {}
         for path in self.ensure_paths(paths):
             try:
@@ -157,8 +155,8 @@ class ScpPutCommand(_ScpWindowCommand):
             except scpfolder.SCPNotConnectedError:
                 pass
 
+        dir_listener = SCPCopyDirListener()
         for conn, paths in groups.items():
-            # TODO: built possibly missing remote paths
             conn.putpaths(paths, dir_listener)
 
 
