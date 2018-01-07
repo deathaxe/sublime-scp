@@ -141,6 +141,9 @@ class ScpPutCommand(_ScpWindowCommand):
     def run(self, paths=None):
         groups = {}
         for path in self.ensure_paths(paths):
+            # simple ignored handling to protect some special dirs/files
+            if os.path.basename(path) in ('.scp', '.git'):
+                continue
             try:
                 conn = scpfolder.connection(path)
                 if conn.is_root(path):
