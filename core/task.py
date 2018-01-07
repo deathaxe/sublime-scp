@@ -7,19 +7,15 @@ import threading
 
 class TaskListener(object):
 
-    def on_start(self, proc):
+    def on_start(self, task):
         """Task process is started."""
         pass
 
-    def on_data(self, proc, data):
+    def on_data(self, task, data):
         """Got data from stdout."""
         pass
 
-    def on_error(self, proc, data):
-        """Got data from stderr."""
-        pass
-
-    def on_finished(self, proc):
+    def on_finished(self, task):
         """Task process finished."""
         pass
 
@@ -55,19 +51,22 @@ class Task(object):
         self.proc = subprocess.Popen(
             self.cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            stdin=subprocess.PIPE,
             startupinfo=startupinfo,
             env=proc_env,
             universal_newlines=True)
 
-        self.listener.on_start(self.proc)
+        self.listener.on_start(self)
 
-        if self.proc.stderr:
-            threading.Thread(target=self.read_stderr).start()
-
-        # read blocking
-        self.read_stdout()
+        try:
+            online = True
+            while online:
+                data = self.proc.stdout.readline(2**16)
+                online = bool(data)
+                if online:
+                    self.listener.on_data(self, data)
+        finally:
+            self.proc.stdout.close()
+            self.listener.on_finished(self)
 
     def kill(self):
         self.proc.terminate()
@@ -87,29 +86,6 @@ class Task(object):
         except BrokenPipeError as err:
             self.kill()
 
-    def read_stdout(self):
-        try:
-            online = True
-            while online:
-                data = self.proc.stdout.readline(2**16)
-                online = bool(data)
-                if online:
-                    self.listener.on_data(self, data)
-        finally:
-            self.proc.stdout.close()
-            self.listener.on_finished(self)
-
-    def read_stderr(self):
-        try:
-            online = True
-            while online:
-                data = self.proc.stderr.readline(2**16)
-                online = bool(data)
-                if online:
-                    self.listener.on_error(self, data)
-        finally:
-            self.proc.stderr.close()
-
 
 class TaskQueue(threading.Thread):
 
@@ -118,7 +94,7 @@ class TaskQueue(threading.Thread):
     """
 
     def __init__(self):
-        super().__init__()
+        super().__init__(daemon=True)
         self.queue = queue.Queue()
         self.active_task = None
 

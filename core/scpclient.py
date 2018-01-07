@@ -31,12 +31,12 @@ class SCPCommandTask(task.TaskListener):
         self.msg = msg
         task.call(cmd, self, env)
 
-    def on_start(self, proc):
+    def on_start(self, task):
         if self.msg:
             sys.stdout.write(self.msg)
 
-    def on_finished(self, proc):
-        msg = "Failed!" if proc.exit_code() else "Done!"
+    def on_finished(self, task):
+        msg = "Failed!" if task.exit_code() else "OK"
         print(msg)
 
 
@@ -46,17 +46,17 @@ class SCPLsDirTask(SCPCommandTask):
         self.data = ""
         super().__init__(cmd, env)
 
-    def on_data(self, proc, data):
+    def on_data(self, task, data):
         self.data += data
 
-    def on_finished(self, proc):
+    def on_finished(self, task):
         print(self.data)
 
 
 class SCPCopyFileTask(SCPCommandTask):
 
-    def on_finished(self, proc):
-        msg = "Failed!" if proc.exit_code() else "Done!"
+    def on_finished(self, task):
+        msg = "Failed!" if task.exit_code() else "OK"
         print(msg)
 
 
@@ -66,11 +66,11 @@ class SCPCopyDirTask(SCPCommandTask):
         self.file = None
         super().__init__(cmd, env, msg)
 
-    def on_start(self, proc):
+    def on_start(self, task):
         if self.msg:
             print(self.msg)
 
-    def on_data(self, proc, data):
+    def on_data(self, task, data):
         """
         Parse scp's output to get current file name being transfered.
 
