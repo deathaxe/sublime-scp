@@ -3,20 +3,12 @@ import sys
 
 from . import task
 
-def exec(args):
-    if sys.platform == 'win32':
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    else:
-        startupinfo = None
-    proc = subprocess.Popen(
-        args=args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        startupinfo=startupinfo,
-        universal_newlines=True)
-    out, err = proc.communicate()
-    return out, err, proc.returncode
+class SCPException(Exception):
+    pass
+
+
+class SCPNotConnectedError(SCPException):
+    pass
 
 
 class SCPClient(object):
@@ -48,19 +40,12 @@ class SCPClient(object):
         if passwd:
             self.plink.extend(["-pw", passwd])
 
-        self.conn_time = self.server_time()
-        if not self.conn_time:
-            raise Exception("SCP connection failed!")
+        # connection test using sync silent task to read the server time
+        if task.Task(self.plink + ["date"]).run() != 0:
+            raise SCPNotConnectedError("SCP connection failed!")
 
     def scp_url(self, remote):
         return "%s@%s:%s" % (self.user, self.host, remote)
-
-    def server_time(self):
-        args = self.plink + ["date"]
-        out, err, ret = exec(args)
-        if ret:
-            return None
-        return out
 
     def remove(self, remote, listener):
         args = self.plink + ["rm", "-r", remote]

@@ -130,7 +130,7 @@ class ScpGetCommand(_ScpWindowCommand):
                     scpfolder.connection(path).getfile(path, file_listener)
                 else:
                     scpfolder.connection(path).getdir(path, dir_listener)
-            except scpfolder.ScpNotConnectedError:
+            except scpfolder.SCPNotConnectedError:
                 pass
             except Exception as error:
                 sublime.error_message(str(error))
@@ -157,7 +157,7 @@ class ScpPutCommand(_ScpWindowCommand):
                     conn.putfile(path, file_listener)
                 else:
                     scpfolder.connection(path).putdir(path, dir_listener)
-            except scpfolder.ScpNotConnectedError:
+            except scpfolder.SCPNotConnectedError:
                 pass
             except Exception as error:
                 sublime.error_message(str(error))
@@ -171,7 +171,7 @@ class ScpDelCommand(_ScpWindowCommand):
         for path in self.ensure_paths(paths):
             try:
                 scpfolder.connection(path).remove(path, remove_listener)
-            except scpfolder.ScpNotConnectedError:
+            except scpfolder.SCPNotConnectedError:
                 pass
             except Exception as error:
                 sublime.error_message(str(error))

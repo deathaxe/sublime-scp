@@ -6,21 +6,20 @@ import sys
 import sublime
 
 from .scpclient import SCPClient
+from .scpclient import SCPException
+from .scpclient import SCPNotConnectedError
 
 connections = []
 
 
-class ScpNotConnectedError(Exception):
-    pass
-
-class ScpAbortError(Exception):
+class SCPFolderError(SCPException):
     pass
 
 
 def connect(path):
     try:
         return connection(path)
-    except ScpNotConnectedError:
+    except SCPNotConnectedError:
         try:
             if sys.platform == "win32":
                 client = SCPFolder(path.lower())
@@ -28,7 +27,7 @@ def connect(path):
                 client = SCPFolder(path)
             connections.append(client)
             return client
-        except:
+        except SCPException:
             return False
 
 
@@ -36,7 +35,7 @@ def disconnect(path):
     try:
         while True:
             connections.remove(connection(path))
-    except (IndexError, ScpNotConnectedError):
+    except (IndexError, SCPException):
         pass
 
 
@@ -46,7 +45,7 @@ def connection(path):
         for client in connections:
             if p.startswith(client.root):
                 return client
-    raise ScpNotConnectedError("No SCP connection for %s!" % path)
+    raise SCPNotConnectedError("No SCP connection for %s!" % path)
 
 
 def is_connected(path):
@@ -73,7 +72,7 @@ class SCPFolder(SCPClient):
     def __init__(self, path):
         root = root_dir(path)
         if not root:
-            raise ValueError("Not within a mapped folder")
+            raise SCPFolderError("Not within a mapped folder")
         with open(os.path.join(root, ".scp")) as file:
             client = sublime.decode_value(file.read())
             SCPClient.__init__(
