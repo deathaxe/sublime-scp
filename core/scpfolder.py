@@ -4,7 +4,6 @@ import subprocess
 import sys
 
 import sublime
-import sublime_plugin
 
 from .scpclient import SCPClient
 

@@ -3,9 +3,6 @@ import re
 import subprocess
 import sys
 
-import sublime
-import sublime_plugin
-
 from . import task
 
 def exec(args):
