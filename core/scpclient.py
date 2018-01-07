@@ -1,5 +1,3 @@
-import os
-import re
 import subprocess
 import sys
 
@@ -19,72 +17,6 @@ def exec(args):
         universal_newlines=True)
     out, err = proc.communicate()
     return out, err, proc.returncode
-
-
-class SCPCommandTask(task.TaskListener):
-
-    def __init__(self, cmd, env=None, msg=None):
-        super().__init__()
-        self.msg = msg
-        task.call(cmd, self, env)
-
-    def on_start(self, task):
-        if self.msg:
-            sys.stdout.write(self.msg)
-
-    def on_finished(self, task):
-        msg = "Failed!" if task.exit_code() else "OK"
-        print(msg)
-
-
-class SCPLsDirTask(SCPCommandTask):
-
-    def __init__(self, cmd, env=None):
-        self.data = ""
-        super().__init__(cmd, env)
-
-    def on_data(self, task, data):
-        self.data += data
-
-    def on_finished(self, task):
-        print(self.data)
-
-
-class SCPCopyFileTask(SCPCommandTask):
-
-    def on_finished(self, task):
-        msg = "Failed!" if task.exit_code() else "OK"
-        print(msg)
-
-
-class SCPCopyDirTask(SCPCommandTask):
-
-    def __init__(self, cmd, env=None, msg=None):
-        self.file = None
-        super().__init__(cmd, env, msg)
-
-    def on_start(self, task):
-        if self.msg:
-            print(self.msg)
-
-    def on_data(self, task, data):
-        """
-        Parse scp's output to get current file name being transfered.
-
-        Example:
-        cp1250.py                 | 4 kB |   4.0 kB/s | ETA: 00:00:02 |  29%
-
-        """
-        # empty line
-        if data in (None, '', '\n'):
-            return
-
-        file, _ = re.split(r'\s*\|\s*', data, 1)
-        if file and file != self.file:
-            if self.file:
-                print("Done!")
-            self.file = file
-            sys.stdout.write("%s ... " % file)
 
 
 class SCPClient(object):
@@ -114,36 +46,30 @@ class SCPClient(object):
             return None
         return out
 
-    def remove(self, remote):
+    def remove(self, remote, listener):
         args = self.plink + ["rm", "-r", remote]
-        msg = "SCP delete %s ... " % remote
-        SCPCommandTask(args, msg=msg)
+        task.call(args, listener)
 
-    def mkdir(self, remote):
+    def mkdir(self, remote, listener):
         args = self.plink + ["mkdir", "-p", remote]
-        msg = "SCP mkdir %s ... " % remote
-        SCPCommandTask(args, msg=msg)
+        task.call(args, listener)
 
-    def lsdir(self, remote):
+    def lsdir(self, remote, listener):
         args = self.pscp + ["-ls", self._to_scp_url(remote)]
-        SCPLsDirTask(args)
+        task.call(args, listener)
 
-    def putdir(self, local, remote):
+    def putdir(self, local, remote, listener):
         args = self.pscp + ["-r", local, self._to_scp_url(remote)]
-        msg = "SCP put %s --> %s ... " % (local, remote)
-        SCPCopyDirTask(args, msg=msg)
+        task.call(args, listener)
 
-    def getdir(self, remote, local):
+    def getdir(self, remote, local, listener):
         args = self.pscp + ["-r", self._to_scp_url(remote), local]
-        msg = "SCP get %s --> %s ... " % (remote, local)
-        SCPCopyDirTask(args, msg=msg)
+        task.call(args, listener)
 
-    def putfile(self, local, remote):
+    def putfile(self, local, remote, listener):
         args = self.pscp + ["-q", local, self._to_scp_url(remote)]
-        msg = "SCP put %s --> %s ... " % (local, remote)
-        SCPCopyFileTask(args, msg=msg)
+        task.call(args, listener)
 
-    def getfile(self, remote, local):
+    def getfile(self, remote, local, listener):
         args = self.pscp + ["-q", self._to_scp_url(remote), local]
-        msg = "SCP get %s --> %s ... " % (remote, local)
-        SCPCopyFileTask(args, msg=msg)
+        task.call(args, listener)

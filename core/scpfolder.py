@@ -100,23 +100,23 @@ class SCPFolder(SCPClient):
             return os.path.dirname(self.remote_path).replace("\\", "/")
         return self.to_remote_path(os.path.dirname(path))
 
-    def remove(self, path):
-        super().remove(self.to_remote_path(path))
+    def remove(self, path, listener):
+        super().remove(self.to_remote_path(path), listener)
 
-    def mkdir(self, path):
-        super().mkdir(self.to_remote_path(path))
+    def mkdir(self, path, listener):
+        super().mkdir(self.to_remote_path(path), listener)
 
-    def lsdir(self, path):
-        super().lsdir(self.to_remote_path(path))
+    def lsdir(self, path, listener):
+        super().lsdir(self.to_remote_path(path), listener)
 
-    def putfile(self, path):
-        super().putfile(path, self.to_remote_path(path))
+    def putfile(self, path, listener):
+        super().putfile(path, self.to_remote_path(path), listener)
 
-    def getfile(self, path):
-        super().getfile(self.to_remote_path(path), path)
+    def getfile(self, path, listener):
+        super().getfile(self.to_remote_path(path), path, listener)
 
-    def putdir(self, path):
-        super().putdir(path, self.to_remote_parent(path))
+    def putdir(self, path, listener):
+        super().putdir(path, self.to_remote_parent(path), listener)
 
-    def getdir(self, path):
-        super().getdir(self.to_remote_path(path), os.path.dirname(path))
+    def getdir(self, path, listener):
+        super().getdir(self.to_remote_path(path), os.path.dirname(path), listener)
