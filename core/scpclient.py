@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import sys
 
@@ -14,7 +15,7 @@ class SCPNotConnectedError(SCPException):
 
 class SCPClient(object):
 
-    def __init__(self, host, port=22, user="guest", passwd=None, root=None):
+    def __init__(self, host, port=22, user=None, passwd=None, hostkey=None, root=None):
         """Initialize an SCPClient object.
 
         Arguments:
@@ -35,15 +36,44 @@ class SCPClient(object):
         self.port = port
         self.user = user
         self.pscp = ["pscp", "-scp", "-batch"]
+        self.plink = ["plink", "%s@%s:%d" % (user, host, port)]
+        # add password to command line arguments
         if passwd:
             self.pscp.extend(["-pw", passwd])
-        self.plink = ["plink", "%s@%s:%d" % (user, host, port)]
-        if passwd:
             self.plink.extend(["-pw", passwd])
-
+        # add hostkey to command line arguments
+        self.hostkey = hostkey
+        if hostkey not in (None, "", "*"):
+            args = ["-hostkey", hostkey]
+            self.pscp.extend(args)
+            self.plink.extend(args)
         # connection test using sync silent task to read the server time
-        if task.Task(self.plink + ["date"]).run() != 0:
-            raise SCPNotConnectedError("SCP connection failed!")
+        conn = task.Task(self.plink + ["date"])
+        while True:
+            conn.run()
+            # got time
+            self.conn_time = conn.proc.stdout.read()
+            if self.conn_time:
+                return True
+            # check error message
+            error_message = conn.proc.stderr.read()
+            if not error_message:
+                raise SCPNotConnectedError("SCP connection failed!")
+            # try to find hostkey in error message
+            match = re.search(
+                r'((?:[0-9a-f]{2}:){15,}[0-9a-f]{2})', error_message)
+            if not match:
+                raise SCPNotConnectedError("SCP connection failed!")
+            # hostkey auto-acceptance not set
+            if self.hostkey != "*":
+                raise SCPNotConnectedError(
+                    "SCP invalid fingerprint %s!" % match.group(1))
+            self.hostkey = match.group(1)
+            print("SCP using unknown host fingerprint", self.hostkey)
+            args = ["-hostkey", self.hostkey]
+            self.pscp.extend(args)
+            self.plink.extend(args)
+            conn.cmd = self.plink + ["date"]
 
     def scp_url(self, remote):
         return "%s@%s:%s" % (self.user, self.host, remote)

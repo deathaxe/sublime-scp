@@ -81,6 +81,7 @@ class SCPFolder(SCPClient):
                 client.get("port", 22),
                 client.get("user", "guest"),
                 client.get("passwd", None),
+                client.get("hostkey", None),
                 root
             )
             self.remote_path = client.get("path", "/")

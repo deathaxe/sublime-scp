@@ -3,5 +3,11 @@
     "port": 22,
     "user": "guest",
     "passwd": "guest",
+
+    // The value to pass to the `-hostkey` command line argument
+    // Using `None` or "" means not to use `-hostkey`
+    // Using `*` means to accept any remote fingerprint
+    "hostkey": "*",
+
     "path": "/home/guest"
 }

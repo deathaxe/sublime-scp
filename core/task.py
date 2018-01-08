@@ -52,6 +52,7 @@ class Task(object):
         self.proc = subprocess.Popen(
             self.cmd,
             stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             startupinfo=startupinfo,
             cwd=self.cwd,
             env=proc_env,
