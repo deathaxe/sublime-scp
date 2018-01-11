@@ -28,6 +28,7 @@ def connect(path):
             connections.append(client)
             return client
         except SCPException:
+
             return False
 
 

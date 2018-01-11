@@ -46,7 +46,7 @@ class SCPCopyDirListener(SCPTaskListener):
         file, _ = re.split(r'\s*\|\s*', data, 1)
         if file and file != self.file:
             if self.file:
-                print("Done!")
+                print("OK")
             self.file = file
             sys.stdout.write("%s ... " % file)
 
@@ -61,6 +61,23 @@ class SCPCopyFileListener(SCPTaskListener):
     def on_start(self, task):
         msg = "SCP copy %s --> %s ... " % (task.cmd[-2], task.cmd[-1])
         sys.stdout.write(msg)
+
+
+class SCPCopyTarListener(SCPCopyFileListener):
+
+    def __init__(self, client):
+        self.client = client
+
+    def on_finished(self, task):
+        """Task process finished."""
+        if task.exit_code() == 0:
+            task.cmd = self.client.plink + [
+                "tar -xf /tmp/scp.tar.gz -C %s; rm /tmp/scp.tar.gz" % self.client.remote_path
+            ]
+            task.run()
+            print("OK")
+        else:
+            print("Failed!")
 
 
 class SCPLsDirListener(SCPTaskListener):

@@ -5,6 +5,25 @@ import sys
 
 from . import task
 
+
+class SCPCopyTarListener(task.TaskListener):
+
+    def __init__(self, client, listener):
+        self.client = client
+        self.listener = listener
+
+    def on_start(self, task_obj):
+        self.listener.on_start(task_obj)
+
+    def on_finished(self, task_obj):
+        """Task process finished."""
+        if task_obj.exit_code() == 0:
+            task.Task(self.client.plink + [
+                "tar -xf /tmp/scp.tar.gz -C %s; rm /tmp/scp.tar.gz" % self.client.remote_path
+            ]).run()
+        self.listener.on_finished(task_obj)
+
+
 class SCPException(Exception):
     pass
 
@@ -126,3 +145,7 @@ class SCPClient(object):
         """
         args = self.pscp + ["-r"] + paths + [self.scp_url(remote)]
         task.call(args, listener, self.root)
+
+    def puttar(self, tarfile, listener):
+        args = self.pscp + ["-q", tarfile, self.scp_url('/tmp/scp.tar.gz')]
+        task.call(args, SCPCopyTarListener(self, listener), self.root)
