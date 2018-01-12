@@ -169,10 +169,10 @@ class ScpPutCommand(_ScpWindowCommand):
         listener = SCPCopyFileListener()
         for conn, paths in groups.items():
 
-            file, tmpfile = tempfile.mkstemp(prefix='scp_')
+            file, tmpfile = tempfile.mkstemp(prefix="scp_")
             os.close(file)
 
-            with tarfile.open(tmpfile, "w:gz") as tar:
+            with tarfile.open(tmpfile, "w") as tar:
                 for path in paths:
                     tar.add(path, arcname=os.path.relpath(path, conn.root), filter=tarfilter)
             conn.puttar(tmpfile, listener)

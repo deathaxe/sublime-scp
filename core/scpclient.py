@@ -18,9 +18,13 @@ class SCPCopyTarListener(task.TaskListener):
     def on_finished(self, task_obj):
         """Task process finished."""
         if task_obj.exit_code() == 0:
+            # untar remote file and delete archive
+            _, tarfile = task_obj.cmd[-1].split(":")
             task.Task(self.client.plink + [
-                "tar -xf /tmp/scp.tar.gz -C %s; rm /tmp/scp.tar.gz" % self.client.remote_path
+                "tar -C {0} -xf {1}; rm {1}".format(self.client.remote_path, tarfile)
             ]).run()
+        # remove local archive
+        os.remove(task_obj.cmd[-2])
         self.listener.on_finished(task_obj)
 
 
@@ -147,5 +151,6 @@ class SCPClient(object):
         task.call(args, listener, self.root)
 
     def puttar(self, tarfile, listener):
-        args = self.pscp + ["-q", tarfile, self.scp_url('/tmp/scp.tar.gz')]
+        remote = "/tmp/" + os.path.basename(tarfile)
+        args = self.pscp + ["-q", tarfile, self.scp_url(remote)]
         task.call(args, SCPCopyTarListener(self, listener), self.root)
