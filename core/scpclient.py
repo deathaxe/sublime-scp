@@ -6,28 +6,6 @@ import sys
 from . import task
 
 
-class SCPCopyTarListener(task.TaskListener):
-
-    def __init__(self, client, listener):
-        self.client = client
-        self.listener = listener
-
-    def on_start(self, task_obj):
-        self.listener.on_start(task_obj)
-
-    def on_finished(self, task_obj):
-        """Task process finished."""
-        if task_obj.exit_code() == 0:
-            # untar remote file and delete archive
-            _, tarfile = task_obj.cmd[-1].split(":")
-            task.Task(self.client.plink + [
-                "tar -C {0} -xf {1}; rm {1}".format(self.client.remote_path, tarfile)
-            ]).run()
-        # remove local archive
-        os.remove(task_obj.cmd[-2])
-        self.listener.on_finished(task_obj)
-
-
 class SCPException(Exception):
     pass
 
@@ -105,33 +83,33 @@ class SCPClient(object):
         if isinstance(remote, str):
             remote = [remote]
         args = self.plink + ["rm -r %s;" % r for r in remote]
-        task.call(args, listener, self.root)
+        task.call_proc(args, listener, self.root)
 
     def mkdir(self, remote, listener):
         if isinstance(remote, str):
             remote = [remote]
         args = self.plink + ["mkdir -p %s;" % r for r in remote]
-        task.call(args, listener, self.root)
+        task.call_proc(args, listener, self.root)
 
     def lsdir(self, remote, listener):
         args = self.pscp + ["-ls", self.scp_url(remote)]
-        task.call(args, listener, self.root)
+        task.call_proc(args, listener, self.root)
 
     def putdir(self, local, remote, listener):
         args = self.pscp + ["-r", local, self.scp_url(remote)]
-        task.call(args, listener, self.root)
+        task.call_proc(args, listener, self.root)
 
     def getdir(self, remote, local, listener):
         args = self.pscp + ["-r", self.scp_url(remote), local]
-        task.call(args, listener, self.root)
+        task.call_proc(args, listener, self.root)
 
     def putfile(self, local, remote, listener):
         args = self.pscp + ["-q", local, self.scp_url(remote)]
-        task.call(args, listener, self.root)
+        task.call_proc(args, listener, self.root)
 
     def getfile(self, remote, local, listener):
         args = self.pscp + ["-q", self.scp_url(remote), local]
-        task.call(args, listener, self.root)
+        task.call_proc(args, listener, self.root)
 
     def putpaths(self, paths, remote, listener):
         """Copy a list of local files and directories to server.
@@ -147,10 +125,5 @@ class SCPClient(object):
                 An callback class which displays
                 the output of the SCP process.
         """
-        args = self.pscp + ["-r"] + paths + [self.scp_url(remote)]
-        task.call(args, listener, self.root)
-
-    def puttar(self, tarfile, listener):
-        remote = "/tmp/" + os.path.basename(tarfile)
-        args = self.pscp + ["-q", tarfile, self.scp_url(remote)]
-        task.call(args, SCPCopyTarListener(self, listener), self.root)
+        args = self.pscp + ["-r", "-C"] + paths + [self.scp_url(remote)]
+        task.call_proc(args, listener, self.root)

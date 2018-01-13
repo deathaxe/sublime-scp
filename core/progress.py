@@ -12,13 +12,16 @@ class Progress(object):
 
     def __enter__(self):
         """Start progress bar."""
-        sublime.set_timeout(lambda: self._update(0), 100)
-        self.running = True
+        self.start()
         return self
 
     def __exit__(self, type, value, traceback):
         """Stop progress bar."""
         self.running = False
+
+    def start(self):
+        sublime.set_timeout(lambda: self._update(0), 100)
+        self.running = True
 
     def done(self, message):
         """Stop and print finalization message."""

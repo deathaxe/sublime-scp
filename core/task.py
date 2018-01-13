@@ -20,7 +20,59 @@ class TaskListener(object):
         pass
 
 
-class Task(object):
+class BaseTask(object):
+
+    def run(self):
+        pass
+
+    def kill(self):
+        pass
+
+    def poll(self):
+        pass
+
+    def exit_code(self):
+        pass
+
+    def send(self, data):
+        pass
+
+
+class FuncTask(BaseTask):
+
+    """
+    FuncTask runs a python function `target` when called.
+    """
+
+    def __init__(self, target, *args, listener=None):
+        """Initialize the FuncTask object."""
+        assert target
+        self.target = target
+        self.args = args
+        self.listener = listener
+        self.result = None
+
+    def run(self):
+        if self.listener:
+            self.listener.on_start(self)
+
+            def on_data(data):
+                self.listener.on_data(self, data)
+            self.result = self.target(self, *self.args, on_data=on_data)
+            self.listener.on_finished(self)
+        else:
+            def on_data(data):
+                pass
+            self.result = self.target(self, *self.args, on_data=on_data)
+
+    def poll(self):
+        return self.result is None
+
+    def exit_code(self):
+        return self.result
+
+
+class ProcTask(BaseTask):
 
     """
     Task is a class to encapsulate a queued subprocess call.
@@ -75,6 +127,8 @@ class Task(object):
             self.listener.on_finished(self)
 
     def kill(self):
+        if not self.proc:
+            return 0
         self.proc.terminate()
         return self.exit_code()
 
@@ -152,8 +206,16 @@ def busy():
     return _tasks.busy()
 
 
-def call(cmd, listener=None, cwd=None, env=None):
-    _tasks.call(Task(cmd, listener, cwd, env))
+def call_task(task):
+    _tasks.call(task)
+
+
+def call_func(func, *args, listener=None):
+    call_task(FuncTask(func, *args, listener=listener))
+
+
+def call_proc(cmd, listener=None, cwd=None, env=None):
+    call_task(ProcTask(cmd, listener, cwd, env))
 
 
 def cancel_all():

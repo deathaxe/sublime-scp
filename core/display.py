@@ -63,21 +63,10 @@ class SCPCopyFileListener(SCPTaskListener):
         sys.stdout.write(msg)
 
 
-class SCPCopyTarListener(SCPCopyFileListener):
+class SCPCopyTarListener(SCPTaskListener):
 
-    def __init__(self, client):
-        self.client = client
-
-    def on_finished(self, task):
-        """Task process finished."""
-        if task.exit_code() == 0:
-            task.cmd = self.client.plink + [
-                "tar -xf /tmp/scp.tar.gz -C %s; rm /tmp/scp.tar.gz" % self.client.remote_path
-            ]
-            task.run()
-            print("OK")
-        else:
-            print("Failed!")
+    def on_data(self, task, data):
+        print(data)
 
 
 class SCPLsDirListener(SCPTaskListener):

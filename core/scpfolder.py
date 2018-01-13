@@ -2,12 +2,17 @@ import os
 import re
 import subprocess
 import sys
+import tarfile
+import tempfile
 
 import sublime
 
 from .scpclient import SCPClient
 from .scpclient import SCPException
 from .scpclient import SCPNotConnectedError
+
+from . import commonpath
+from . import task
 
 connections = []
 
@@ -68,6 +73,22 @@ def root_dir(file_name):
     return False
 
 
+def exec(args):
+    if sys.platform == 'win32':
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    else:
+        startupinfo = None
+    proc = subprocess.Popen(
+        args=args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        startupinfo=startupinfo,
+        universal_newlines=True)
+    proc.wait()
+    return proc.returncode
+
+
 class SCPFolder(SCPClient):
 
     def __init__(self, path):
@@ -86,6 +107,7 @@ class SCPFolder(SCPClient):
                 root
             )
             self.remote_path = client.get("path", "/")
+            self.use_tar = client.get("use_tar", True)
 
     def to_remote_path(self, path):
         if self.is_root(path):
@@ -130,6 +152,12 @@ class SCPFolder(SCPClient):
         super().getdir(self.to_remote_path(path), parent, listener)
 
     def putpaths(self, paths, listener):
+        if self.use_tar:
+            task.call_func(self._put_tar_paths, paths, listener=listener)
+        else:
+            self._put_raw_paths(paths, listener)
+
+    def _put_raw_paths(self, paths, listener):
         """
         Put several folders and files to the remote host.
 
@@ -157,3 +185,56 @@ class SCPFolder(SCPClient):
         # push each directory to remote
         for remote, local in groups.items():
             super().putpaths(local, remote, listener)
+
+    def _put_tar_paths(self, task, paths, on_data):
+        """
+        Put several folders and files to the remote host.
+
+        Uploading many files via scp is horribly slow. To work around that
+        the following steps are performed:
+        1. Pack all files given via `paths` into a single tar-file with
+           relative paths based on the mapped folder.
+        2. Upload the tar-file to the remote's /tmp/ folder.
+        3. Untar the file on the remote host and delete it.
+        """
+        source_dir = commonpath.most(paths)
+        target_dir = self.to_remote_path(source_dir)
+        target_url = self.scp_url(target_dir)
+
+        # built temporary local tar-file
+        file, local_tmp = tempfile.mkstemp(prefix="scp_")
+        os.close(file)
+
+        on_data("TAR %s ..." % source_dir)
+
+        with tarfile.open(local_tmp, "w") as tar:
+
+            def tarfilter(tarinfo):
+                tarinfo.uid = tarinfo.gid = 0
+                tarinfo.uname = tarinfo.gname = "root"
+                return tarinfo
+
+            for path in paths:
+                tar.add(
+                    path,
+                    arcname=os.path.relpath(path, source_dir),
+                    filter=tarfilter
+                )
+
+        try:
+            # upload using pscp
+            on_data("SCP push ...")
+            remote_tmp = "/tmp/" + os.path.basename(local_tmp)
+            result = exec(self.pscp + ["-q", local_tmp, self.scp_url(remote_tmp)])
+            if result != 0:
+                return result
+
+            # untar on remote host
+            on_data("UTAR %s..." % target_url)
+            return exec(self.plink + [
+                "tar -C {0} -xf {1}; rm {1}".format(target_dir, remote_tmp)
+            ])
+
+        finally:
+            # remove local archive
+            os.remove(local_tmp)

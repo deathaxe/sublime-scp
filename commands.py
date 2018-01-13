@@ -1,7 +1,5 @@
 import os
 import threading
-import tarfile
-import tempfile
 
 import sublime
 import sublime_plugin
@@ -161,21 +159,10 @@ class ScpPutCommand(_ScpWindowCommand):
             except scpfolder.SCPNotConnectedError:
                 pass
 
-        def tarfilter(tarinfo):
-            tarinfo.uid = tarinfo.gid = 0
-            tarinfo.uname = tarinfo.gname = "root"
-            return tarinfo
-
-        listener = SCPCopyFileListener()
+        listener = SCPCopyTarListener()
+        # listener = SCPCopyTarListener(Progress("SCP push ..."))
         for conn, paths in groups.items():
-
-            file, tmpfile = tempfile.mkstemp(prefix="scp_")
-            os.close(file)
-
-            with tarfile.open(tmpfile, "w") as tar:
-                for path in paths:
-                    tar.add(path, arcname=os.path.relpath(path, conn.root), filter=tarfilter)
-            conn.puttar(tmpfile, listener)
+            conn.putpaths(paths, listener)
 
 
 class ScpDelCommand(_ScpWindowCommand):
