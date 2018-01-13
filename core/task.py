@@ -208,14 +208,15 @@ def busy():
 
 def call_task(task):
     _tasks.call(task)
+    return task
 
 
 def call_func(func, *args, listener=None):
-    call_task(FuncTask(func, *args, listener=listener))
+    return call_task(FuncTask(func, *args, listener=listener))
 
 
 def call_proc(cmd, listener=None, cwd=None, env=None):
-    call_task(ProcTask(cmd, listener, cwd, env))
+    return call_task(ProcTask(cmd, listener, cwd, env))
 
 
 def cancel_all():

@@ -1,20 +1,15 @@
 import os
+import tarfile
+import tempfile
 import threading
 
 import sublime
 import sublime_plugin
 
+from .core import commonpath
 from .core import scpfolder
-from .core.progress import Progress
 from .core import task
-from .core.display import (
-        SCPCopyDirListener,
-        SCPCopyFileListener,
-        SCPCopyTarListener,
-        SCPLsDirListener,
-        SCPMkDirListener,
-        SCPRemoveListener
-    )
+from .core.progress import Progress
 
 TEMPLATE = """
 {
@@ -37,6 +32,9 @@ class _ScpWindowCommand(sublime_plugin.WindowCommand):
             scpfolder.is_connected(path)
             for path in self.ensure_paths(paths)
         )
+
+    def run(self, paths=None):
+        task.call_func(self.executor, self.ensure_paths(paths))
 
     def ensure_paths(self, paths):
         """If no path was provided, use active view's file name."""
@@ -81,17 +79,15 @@ class ScpConnectCommand(_ScpWindowCommand):
         )
 
     def run(self, paths=None):
+        self.thread = task.call_func(self.executor, self.ensure_paths(paths))
 
-        def executor():
-            with Progress("Connecting...") as progress:
-                if all(scpfolder.connect(path) for path in self.ensure_paths(paths)):
-                    progress.done("SCP: connected!")
-                else:
-                    progress.done("SCP: Connection failed!")
-            self.thread = None
-
-        self.thread = threading.Thread(target=executor)
-        self.thread.start()
+    def executor(self, task, paths, on_data):
+        with Progress("Connecting...") as progress:
+            if all(scpfolder.connect(path) for path in paths):
+                progress.done("SCP: connected!")
+            else:
+                progress.done("SCP: Connection failed!")
+        self.thread = None
 
 
 class ScpDisconnectCommand(_ScpWindowCommand):
@@ -114,34 +110,33 @@ class ScpCancelCommand(_ScpWindowCommand):
 
 class ScpGetCommand(_ScpWindowCommand):
 
-    def run(self, paths=None):
-        file_listener = SCPCopyFileListener()
-        dir_listener = SCPCopyDirListener()
+    def executor(self, task, paths, on_data):
         dirnames = set()
+        for path in paths:
+            self.get(path)
 
-        for path in self.ensure_paths(paths):
-            try:
-                if os.path.isfile(path):
-                    # ensure local directory exists if the first file
-                    # of a directory is copied
-                    dirname = os.path.dirname(path)
-                    if dirname not in dirnames:
-                        dirnames.add(dirname)
-                        os.makedirs(dirname, exist_ok=True)
-                    scpfolder.connection(path).getfile(path, file_listener)
-                else:
-                    scpfolder.connection(path).getdir(path, dir_listener)
-            except scpfolder.SCPNotConnectedError:
-                pass
-            except Exception as error:
-                sublime.error_message(str(error))
+    def get(self, path):
+        try:
+            if os.path.isfile(path):
+                # ensure local directory exists if the first file
+                # of a directory is copied
+                dirname = os.path.dirname(path)
+                if dirname not in dirnames:
+                    dirnames.add(dirname)
+                    os.makedirs(dirname, exist_ok=True)
+                scpfolder.connection(path).getfile(path)
+            else:
+                # todo: use gettree via tar
+                scpfolder.connection(path).getdir(path)
+        except scpfolder.SCPNotConnectedError:
+            pass
 
 
 class ScpPutCommand(_ScpWindowCommand):
 
-    def run(self, paths=None):
+    def executor(self, task, paths, on_data):
         groups = {}
-        for path in self.ensure_paths(paths):
+        for path in paths:
             # simple ignored handling to protect some special dirs/files
             if os.path.basename(path) in ('.scp', '.git'):
                 continue
@@ -159,23 +154,74 @@ class ScpPutCommand(_ScpWindowCommand):
             except scpfolder.SCPNotConnectedError:
                 pass
 
-        listener = SCPCopyTarListener()
-        # listener = SCPCopyTarListener(Progress("SCP push ..."))
         for conn, paths in groups.items():
-            conn.putpaths(paths, listener)
+            if len(paths) == 1 and os.path.isfile(paths[0]):
+                # use simple upload for single files
+                conn.putfile(paths[0])
+                msg = "SCP: %s pushed!" % paths[0]
+                print(msg)
+                sublime.status_message(msg)
+            else:
+                # use tarfile upload for multiple files and dirs
+                self.puttree(conn, paths)
+
+    def puttree(self, conn, paths):
+        """
+        Put several folders and files to the remote host.
+
+        Uploading many files via scp is horribly slow. To work around that
+        the following steps are performed:
+        1. Pack all files given via `paths` into a single tar-file with
+           relative paths based on the mapped folder.
+        2. Upload the tar-file to the remote's /tmp/ folder.
+        3. Untar the file on the remote host and delete it.
+        """
+        source_dir = commonpath.most(paths)
+        target_dir = conn.to_remote_path(source_dir)
+
+        # built temporary local tar-file
+        file, local_tmp = tempfile.mkstemp(prefix="scp_")
+        os.close(file)
+
+        with tarfile.open(local_tmp, "w") as tar:
+
+            def tarfilter(tarinfo):
+                tarinfo.uid = tarinfo.gid = 0
+                tarinfo.uname = tarinfo.gname = "root"
+                return tarinfo
+
+            for path in paths:
+                tar.add(
+                    path,
+                    arcname=os.path.relpath(path, source_dir),
+                    filter=tarfilter
+                )
+
+        try:
+            # upload using pscp
+            remote_tmp = "/tmp/" + os.path.basename(local_tmp)
+            super(conn.__class__, conn).putfile(local_tmp, remote_tmp)
+            # untar on remote host
+            conn.plink(
+                "tar -C {0} -xf {1}; rm {1}".format(target_dir, remote_tmp))
+
+            msg = "SCP: %s pushed!" % source_dir
+            print(msg)
+            sublime.status_message(msg)
+
+        finally:
+            # remove local archive
+            os.remove(local_tmp)
 
 
 class ScpDelCommand(_ScpWindowCommand):
 
-    def run(self, paths=None):
-        remove_listener = SCPRemoveListener()
-        for path in self.ensure_paths(paths):
+    def executor(self, task, paths, on_data):
+        for path in paths:
             try:
-                scpfolder.connection(path).remove(path, remove_listener)
+                scpfolder.connection(path).remove(path)
             except scpfolder.SCPNotConnectedError:
                 pass
-            except Exception as error:
-                sublime.error_message(str(error))
 
 
 class ScpEventListener(sublime_plugin.EventListener):
