@@ -1,7 +1,6 @@
 import os
 import tarfile
 import tempfile
-import threading
 
 import sublime
 import sublime_plugin
@@ -10,6 +9,9 @@ from .core import commonpath
 from .core import scpfolder
 from .core import task
 from .core.progress import Progress
+
+from .core.scpclient import SCPCommandError
+from .core.scpclient import SCPNotConnectedError
 
 TEMPLATE = """
 {
@@ -81,10 +83,10 @@ class ScpConnectCommand(_ScpWindowCommand):
     def run(self, paths=None):
         self.thread = task.call_func(self.executor, self.ensure_paths(paths))
 
-    def executor(self, task, paths, on_data):
+    def executor(self, task, paths):
         with Progress("Connecting...") as progress:
             if all(scpfolder.connect(path) for path in paths):
-                progress.done("SCP: connected!")
+                progress.done("SCP: Connected!")
             else:
                 progress.done("SCP: Connection failed!")
         self.thread = None
@@ -95,6 +97,7 @@ class ScpDisconnectCommand(_ScpWindowCommand):
     def run(self, paths=None):
         for path in self.ensure_paths(paths):
             scpfolder.disconnect(path)
+        sublime.status_message("SCP: Disconnected!")
 
 
 class ScpCancelCommand(_ScpWindowCommand):
@@ -109,13 +112,14 @@ class ScpCancelCommand(_ScpWindowCommand):
         for path in self.ensure_paths(paths):
             try:
                 scpfolder.connection(path).cancel()
-            except scpfolder.SCPNotConnectedError:
+            except SCPNotConnectedError:
                 pass
+        sublime.status_message("SCP: Aborted!")
 
 
 class ScpGetCommand(_ScpWindowCommand):
 
-    def executor(self, task, paths, on_data):
+    def executor(self, task, paths):
         groups = {}
         for path in paths:
             if any(f in path for f in ('.scp', '.git')):
@@ -123,7 +127,7 @@ class ScpGetCommand(_ScpWindowCommand):
             try:
                 conn = scpfolder.connection(path)
                 groups.setdefault(conn, []).append(path)
-            except scpfolder.SCPNotConnectedError:
+            except SCPNotConnectedError:
                 pass
 
         for conn, paths in groups.items():
@@ -171,9 +175,15 @@ class ScpGetCommand(_ScpWindowCommand):
 
             sublime.status_message("SCP: extracting ...")
             with tarfile.open(local_tmp, "r") as tar:
+                os.makedirs(local_dir, exist_ok=True)
                 os.chdir(local_dir)
                 tar.extractall()
             sublime.status_message("SCP: Downloaded %s!" % local_dir)
+
+        except SCPCommandError as err:
+            print(str(err).strip())
+            sublime.status_message("SCP: Failed to download %s!" % local_dir)
+
         finally:
             try:
                 # delete remote tar archive
@@ -189,7 +199,7 @@ class ScpGetCommand(_ScpWindowCommand):
 
 class ScpPutCommand(_ScpWindowCommand):
 
-    def executor(self, task, paths, on_data):
+    def executor(self, task, paths):
         groups = {}
         for path in paths:
             if any(f in path for f in ('.scp', '.git')):
@@ -197,7 +207,7 @@ class ScpPutCommand(_ScpWindowCommand):
             try:
                 conn = scpfolder.connection(path)
                 groups.setdefault(conn, []).append(path)
-            except scpfolder.SCPNotConnectedError:
+            except SCPNotConnectedError:
                 pass
 
         for conn, paths in groups.items():
@@ -255,12 +265,16 @@ class ScpPutCommand(_ScpWindowCommand):
             remote_tmp = "/tmp/" + os.path.basename(local_tmp)
             super(conn.__class__, conn).putfile(local_tmp, remote_tmp, progress)
 
-            # untar on remote host
+            # untar on remote host and delete temporary archive
             sublime.status_message("SCP: extracting uploaded tarfile ...")
-            conn.plink("tar -C {0} -xf {1}; rm {1}".format(remote_dir, remote_tmp))
+            conn.plink("mkdir -p {0}; tar -C {0} -xf {1}; rm {1}".format(remote_dir, remote_tmp))
 
             msg = "SCP: Uploaded %s!" % local_dir
             sublime.status_message(msg)
+
+        except SCPCommandError as err:
+            print(str(err).strip())
+            sublime.status_message("SCP: Failed to upload %s!" % local_dir)
 
         finally:
             # remove local archive
@@ -269,12 +283,16 @@ class ScpPutCommand(_ScpWindowCommand):
 
 class ScpDelCommand(_ScpWindowCommand):
 
-    def executor(self, task, paths, on_data):
+    def executor(self, task, paths):
         for path in paths:
             try:
                 scpfolder.connection(path).remove(path)
-            except scpfolder.SCPNotConnectedError:
+                sublime.status_message("SCP: Deleted %s!" % path)
+            except SCPNotConnectedError:
                 pass
+            except SCPCommandError as err:
+                print(str(err).strip())
+                sublime.status_message("SCP: Could not delete %s!" % path)
 
 
 class ScpEventListener(sublime_plugin.EventListener):
