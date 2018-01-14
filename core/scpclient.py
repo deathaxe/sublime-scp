@@ -34,6 +34,7 @@ class SCPClient(object):
                 The local root directory for all operations, which is used as
                 working directory and base for all relative path calulations.
         """
+        self.proc = None  # active process
         self.root = root
         self.host = host
         self.port = port
@@ -79,25 +80,73 @@ class SCPClient(object):
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         else:
             startupinfo = None
-        proc = subprocess.Popen(
+        return subprocess.Popen(
             args=args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             startupinfo=startupinfo,
             universal_newlines=True)
-        out, err = proc.communicate()
-        return proc.returncode, out, err
 
     def plink(self, *args):
-        code, out, err = self.exec(self._plink + list(args))
-        if code or err:
-            raise SCPCommandError(err)
-        return out
+        """Run remote shell command using plink.
 
-    def pscp(self, *args):
-        code, out, err = self.exec(self._pscp + list(args))
-        if code or err:
-            raise SCPCommandError(err)
+        :param args:
+            The command line to execute on the remote host.
+
+        :returns:
+            The output of the command execution.
+
+        :raises:
+            `CalledProcessError` if an error occured with executing plink.
+            `SCPCommandError` if plink returns nonzero exit code or
+            stdout is empty but stderr contains error message.
+        """
+        try:
+            self.proc = self.exec(self._plink + list(args))
+            out, err = self.proc.communicate()
+            if self.proc.returncode or err and not out:
+                raise SCPCommandError(err)
+            return out
+        finally:
+            self.proc = None
+
+    def pscp(self, *args, on_progress=None):
+        """Run a pscp command.
+
+        :param args:
+            The `source` files/paths and the `destination`
+
+        :raises:
+            `CalledProcessError` if an error occured with executing plink.
+            `SCPCommandError` if pscp returns nonzero exit code.
+        """
+        try:
+            self.proc = self.exec(self._pscp + list(args))
+            if callable(on_progress):
+                while True:
+                    data = self.proc.stdout.readline(2**16)
+                    if not bool(data):
+                        return
+
+                    # Parse scp's output to get current file name being transfered.
+                    # cp1250.py   | 4 kB |   4.0 kB/s | ETA: 00:00:02 |  29%
+                    try:
+                        file, percent = re.match(r'\s*(\w+).+?(\d+)%', data).groups()
+                    except (AttributeError, ValueError):
+                        pass
+                    else:
+                        on_progress(file, percent)
+
+            self.proc.wait()
+            if self.proc.returncode:
+                raise SCPCommandError(self.proc.stderr.read())
+
+        finally:
+            self.proc = None
+
+    def abort(self):
+        if self.proc:
+            self.proc.terminate()
 
     def remove(self, remote):
         if isinstance(remote, str):
@@ -112,8 +161,8 @@ class SCPClient(object):
     def lsdir(self, remote):
         return self.pscp("-ls", self.scp_url(remote))
 
-    def putfile(self, local, remote):
-        return self.pscp("-q", local, self.scp_url(remote))
+    def putfile(self, local, remote, on_progress=None):
+        self.pscp(local, self.scp_url(remote), on_progress=on_progress)
 
-    def getfile(self, remote, local):
-        return self.pscp("-q", self.scp_url(remote), local)
+    def getfile(self, remote, local, on_progress=None):
+        self.pscp(self.scp_url(remote), local, on_progress=on_progress)

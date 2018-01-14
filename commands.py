@@ -106,30 +106,85 @@ class ScpCancelCommand(_ScpWindowCommand):
     def run(self, paths=None):
         """Abort all queued and active opera"""
         task.cancel_all()
+        for path in self.ensure_paths(paths):
+            try:
+                scpfolder.connection(path).cancel()
+            except scpfolder.SCPNotConnectedError:
+                pass
 
 
 class ScpGetCommand(_ScpWindowCommand):
 
     def executor(self, task, paths, on_data):
-        dirnames = set()
+        groups = {}
         for path in paths:
-            self.get(path)
+            if any(f in path for f in ('.scp', '.git')):
+                continue
+            try:
+                conn = scpfolder.connection(path)
+                groups.setdefault(conn, []).append(path)
+            except scpfolder.SCPNotConnectedError:
+                pass
 
-    def get(self, path):
-        try:
-            if os.path.isfile(path):
-                # ensure local directory exists if the first file
-                # of a directory is copied
-                dirname = os.path.dirname(path)
-                if dirname not in dirnames:
-                    dirnames.add(dirname)
-                    os.makedirs(dirname, exist_ok=True)
-                scpfolder.connection(path).getfile(path)
+        for conn, paths in groups.items():
+            if len(paths) == 1 and os.path.isfile(paths[0]):
+                # use simple upload for single files
+                conn.getfile(paths[0])
+                msg = "SCP: Downloaded %s!" % paths[0]
+                sublime.status_message(msg)
             else:
-                # todo: use gettree via tar
-                scpfolder.connection(path).getdir(path)
-        except scpfolder.SCPNotConnectedError:
-            pass
+                # use tarfile upload for multiple files and dirs
+                self.gettree(conn, paths)
+
+    def gettree(self, conn, paths):
+        """
+        Download several folders and files to the remote host.
+
+        Uploading many files via scp is horribly slow. To work around that
+        the following steps are performed:
+        1. Pack all files given via `paths` into a single tar-file with
+           relative paths based on the mapped folder.
+        2. Upload the tar-file to the remote's /tmp/ folder.
+        3. Untar the file on the remote host and delete it.
+        """
+        # find common root directory of all paths
+        local_dir = commonpath.most(paths)
+        remote_dir = conn.to_remote_path(local_dir)
+
+        # built temporary local tar-file
+        file, local_tmp = tempfile.mkstemp(prefix="scp_")
+        os.close(file)
+
+        try:
+            remote_tmp = "/tmp/" + os.path.basename(local_tmp)
+
+            # pack remote files into a tar archive
+            sublime.status_message("SCP: preparing download ...")
+            conn.plink("tar -C {0} -cf {1} .".format(remote_dir, remote_tmp))
+
+            def progress(filename, progress):
+                sublime.status_message(
+                    "SCP: downloading [{}%] ...".format(progress))
+
+            # download tar archive
+            super(conn.__class__, conn).getfile(remote_tmp, local_tmp, progress)
+
+            sublime.status_message("SCP: extracting ...")
+            with tarfile.open(local_tmp, "r") as tar:
+                os.chdir(local_dir)
+                tar.extractall()
+            sublime.status_message("SCP: Downloaded %s!" % local_dir)
+        finally:
+            try:
+                # delete remote tar archive
+                super(conn.__class__, conn).remove(remote_tmp)
+            except:
+                pass
+            try:
+                # remove local tar archive
+                os.remove(local_tmp)
+            except:
+                pass
 
 
 class ScpPutCommand(_ScpWindowCommand):
@@ -137,20 +192,11 @@ class ScpPutCommand(_ScpWindowCommand):
     def executor(self, task, paths, on_data):
         groups = {}
         for path in paths:
-            # simple ignored handling to protect some special dirs/files
-            if os.path.basename(path) in ('.scp', '.git'):
+            if any(f in path for f in ('.scp', '.git')):
                 continue
             try:
                 conn = scpfolder.connection(path)
-                if conn.is_root(path):
-                    files = (
-                        os.path.join(path, f)
-                        for f in os.listdir(path)
-                        if f not in ('.', '..', '.scp', '.git')
-                    )
-                    groups.setdefault(conn, []).extend(files)
-                else:
-                    groups.setdefault(conn, []).append(path)
+                groups.setdefault(conn, []).append(path)
             except scpfolder.SCPNotConnectedError:
                 pass
 
@@ -158,8 +204,7 @@ class ScpPutCommand(_ScpWindowCommand):
             if len(paths) == 1 and os.path.isfile(paths[0]):
                 # use simple upload for single files
                 conn.putfile(paths[0])
-                msg = "SCP: %s pushed!" % paths[0]
-                print(msg)
+                msg = "SCP: Uploaded %s!" % paths[0]
                 sublime.status_message(msg)
             else:
                 # use tarfile upload for multiple files and dirs
@@ -176,16 +221,20 @@ class ScpPutCommand(_ScpWindowCommand):
         2. Upload the tar-file to the remote's /tmp/ folder.
         3. Untar the file on the remote host and delete it.
         """
-        source_dir = commonpath.most(paths)
-        target_dir = conn.to_remote_path(source_dir)
+        local_dir = commonpath.most(paths)
+        remote_dir = conn.to_remote_path(local_dir)
 
         # built temporary local tar-file
         file, local_tmp = tempfile.mkstemp(prefix="scp_")
         os.close(file)
 
+        sublime.status_message("SCP: preparing upload ...")
         with tarfile.open(local_tmp, "w") as tar:
 
             def tarfilter(tarinfo):
+                for f in ('.scp', '.git'):
+                    if f in tarinfo.path:
+                        return None
                 tarinfo.uid = tarinfo.gid = 0
                 tarinfo.uname = tarinfo.gname = "root"
                 return tarinfo
@@ -193,20 +242,24 @@ class ScpPutCommand(_ScpWindowCommand):
             for path in paths:
                 tar.add(
                     path,
-                    arcname=os.path.relpath(path, source_dir),
+                    arcname=os.path.relpath(path, local_dir),
                     filter=tarfilter
                 )
 
         try:
+            def progress(filename, progress):
+                sublime.status_message(
+                    "SCP: uploading tarfile [{}%] ...".format(progress))
+
             # upload using pscp
             remote_tmp = "/tmp/" + os.path.basename(local_tmp)
-            super(conn.__class__, conn).putfile(local_tmp, remote_tmp)
-            # untar on remote host
-            conn.plink(
-                "tar -C {0} -xf {1}; rm {1}".format(target_dir, remote_tmp))
+            super(conn.__class__, conn).putfile(local_tmp, remote_tmp, progress)
 
-            msg = "SCP: %s pushed!" % source_dir
-            print(msg)
+            # untar on remote host
+            sublime.status_message("SCP: extracting uploaded tarfile ...")
+            conn.plink("tar -C {0} -xf {1}; rm {1}".format(remote_dir, remote_tmp))
+
+            msg = "SCP: Uploaded %s!" % local_dir
             sublime.status_message(msg)
 
         finally:
