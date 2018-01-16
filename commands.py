@@ -159,13 +159,16 @@ class ScpGetCommand(_ScpWindowCommand):
         file, local_tmp = tempfile.mkstemp(prefix="scp_")
         os.close(file)
 
-        try:
-            remote_tmp = "/tmp/" + os.path.basename(local_tmp)
+        remote_tmp = "/tmp/" + os.path.basename(local_tmp)
 
+        try:
             # pack remote files into a tar archive
             sublime.status_message("SCP: preparing download ...")
             conn.plink("tar -C {0} -cf {1} .".format(remote_dir, remote_tmp))
+        except SCPCommandError as err:
+            pass
 
+        try:
             def progress(filename, progress):
                 sublime.status_message(
                     "SCP: downloading [{}%] ...".format(progress))
@@ -173,6 +176,7 @@ class ScpGetCommand(_ScpWindowCommand):
             # download tar archive
             super(conn.__class__, conn).getfile(remote_tmp, local_tmp, progress)
 
+            # expand tar archive
             sublime.status_message("SCP: extracting ...")
             with tarfile.open(local_tmp, "r") as tar:
                 os.makedirs(local_dir, exist_ok=True)
@@ -267,7 +271,7 @@ class ScpPutCommand(_ScpWindowCommand):
 
             # untar on remote host and delete temporary archive
             sublime.status_message("SCP: extracting uploaded tarfile ...")
-            conn.plink("mkdir -p {0}; tar -C {0} -xf {1}; rm {1}".format(remote_dir, remote_tmp))
+            conn.plink("mkdir -p {0}; tar -C {0} -xf {1}; rm -f {1}".format(remote_dir, remote_tmp))
 
             msg = "SCP: Uploaded %s!" % local_dir
             sublime.status_message(msg)
