@@ -299,6 +299,61 @@ class ScpDelCommand(_ScpWindowCommand):
                 sublime.status_message("SCP: Could not delete %s!" % path)
 
 
+class NewFileNameInputHandler(sublime_plugin.TextInputHandler):
+
+    def __init__(self, view):
+        self.view = view
+
+    def name(self):
+        return "new_name"
+
+    def placeholder(self):
+        return "New File Name"
+
+    def initial_text(self):
+        old = self.view.file_name()
+        if old is None:
+            return self.view.name()
+        else:
+            return os.path.basename(old)
+
+    def validate(self, name):
+        return self.view.file_name() is None or bool(name)
+
+
+class ScpRenameFileCommand(_ScpWindowCommand):
+
+    def run(self, new_name):
+        task.call_func(self.executor, new_name)
+
+    def executor(self, new_name):
+        view = self.window.active_view()
+        old_path = view.file_name()
+
+        self.window.run_command("rename_file", {"new_name": new_name})
+        try:
+            new_path = view.file_name()
+            if new_path != old_path:
+                scpfolder.connection(old_path).rename(old_path, new_path)
+                sublime.status_message("SCP: Renamed to %s!" % new_path)
+        except SCPNotConnectedError:
+            pass
+        except SCPCommandError as err:
+            msg = "SCP: Could not rename %s!" % old_path
+            print(msg)
+            print(str(err).strip())
+            sublime.status_message(msg)
+
+    def input(self, args):
+        if not args.get("new_name"):
+            return NewFileNameInputHandler(self.window.active_view())
+        else:
+            return None
+
+    def input_description(self):
+        return "Rename File:"
+
+
 class ScpEventListener(sublime_plugin.EventListener):
 
     def on_post_save(self, view):

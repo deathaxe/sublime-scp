@@ -102,6 +102,10 @@ class SCPFolder(SCPClient):
     def is_child(self, path):
         return not self.relpath(path).startswith("..")
 
+    def rename(self, path, newpath):
+        return super().rename(
+            self.to_remote_path(path), self.to_remote_path(newpath))
+
     def remove(self, path):
         return super().remove(self.to_remote_path(path))
 

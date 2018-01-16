@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 import sys
@@ -146,6 +147,10 @@ class SCPClient(object):
     def abort(self):
         if self.proc:
             self.proc.terminate()
+
+    def rename(self, remote, remote_new):
+        return self.plink("mkdir -p %s; mv %s %s" % (
+            os.path.split(remote_new)[0], remote, remote_new))
 
     def remove(self, remote):
         if isinstance(remote, str):
