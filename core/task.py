@@ -17,7 +17,7 @@ class Task(object):
         self.args = args
 
     def run(self):
-        self.target(self, *self.args)
+        self.target(*self.args)
 
 
 class TaskQueue(Thread):

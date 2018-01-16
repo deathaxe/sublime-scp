@@ -83,7 +83,7 @@ class ScpConnectCommand(_ScpWindowCommand):
     def run(self, paths=None):
         self.thread = task.call_func(self.executor, self.ensure_paths(paths))
 
-    def executor(self, task, paths):
+    def executor(self, paths):
         with Progress("Connecting...") as progress:
             if all(scpfolder.connect(path) for path in paths):
                 progress.done("SCP: Connected!")
@@ -119,7 +119,7 @@ class ScpCancelCommand(_ScpWindowCommand):
 
 class ScpGetCommand(_ScpWindowCommand):
 
-    def executor(self, task, paths):
+    def executor(self, paths):
         groups = {}
         for path in paths:
             if any(f in path for f in ('.scp', '.git')):
@@ -203,7 +203,7 @@ class ScpGetCommand(_ScpWindowCommand):
 
 class ScpPutCommand(_ScpWindowCommand):
 
-    def executor(self, task, paths):
+    def executor(self, paths):
         groups = {}
         for path in paths:
             if any(f in path for f in ('.scp', '.git')):
@@ -287,7 +287,7 @@ class ScpPutCommand(_ScpWindowCommand):
 
 class ScpDelCommand(_ScpWindowCommand):
 
-    def executor(self, task, paths):
+    def executor(self, paths):
         for path in paths:
             try:
                 scpfolder.connection(path).remove(path)
