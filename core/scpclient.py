@@ -166,7 +166,15 @@ class SCPClient(object):
         return self.pscp("-ls", self.scp_url(remote))
 
     def putfile(self, local, remote, on_progress=None):
-        self.pscp(local, self.scp_url(remote), on_progress=on_progress)
+        remote_url = self.scp_url(remote)
+        try:
+            self.pscp(local, remote_url, on_progress=on_progress)
+        except SCPCommandError:
+            # Try to create the remote path
+            remote_path, _ = os.path.split(remote)
+            self.plink("mkdir -p %s" % remote_path)
+            # Try to upload again.
+            self.pscp(local, remote_url, on_progress=on_progress)
 
     def getfile(self, remote, local, on_progress=None):
         self.pscp(self.scp_url(remote), local, on_progress=on_progress)
