@@ -9,5 +9,25 @@
     // Using `*` means to accept any remote fingerprint
     "hostkey": "*",
 
-    "path": "/home/guest"
+    "dir": "/home/guest",
+
+    // A list of fnmatch patterns to define the files to include into the
+    // deploy process.
+    "files": ["*.*"],
+
+    // A list of path translations. The directories matched by one of the
+    // keys are translated to the value.
+    // If <path> is a directory its content (files, dirs) is copied to the
+    // remote path defined by <value>.
+    // If <path> is a file, its containing directory is translated.
+    "dirmap": {
+        // Put all files located in a "cma" directory or one of its subs
+        // to "<dir>/oem/sinumerik/data/archive/cma/"
+        "(?:.*/)?cma(?:/.*)?": "oem/sinumerik/data/archive/cma",
+
+        // Put all files and folders located in a "hlp" folder to
+        // "<dir>/oem/sinumerik/hmi/hlp/" and keep the sub tree structure.
+        "(?:.*/)?hlp(/.*)?": "oem/sinumerik/hmi/hlp/\\1",
+        "(?:.*/)?lng(/.*)?": "oem/sinumerik/hmi/lng/\\1",
+    },
 }

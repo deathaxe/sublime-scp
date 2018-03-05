@@ -1,5 +1,8 @@
 import os
+import re
 import sys
+
+from fnmatch import fnmatch
 
 import sublime
 
@@ -65,7 +68,6 @@ def root_dir(file_name):
             path, name = os.path.split(path)
     return False
 
-
 class SCPFolder(SCPClient):
 
     def __init__(self, path):
@@ -83,15 +85,41 @@ class SCPFolder(SCPClient):
                 client.get("hostkey", None),
                 root
             )
-            self.remote_path = client.get("path", "/")
+            self.remote_dir = client.get("dir", "/")
+            self.files_pattern = client.get("files", [])
+            self.dirs_mapping = client.get("dirmap", {})
+            self.path_map = client.get("mappings", [])
+            self.debug = client.get("debug", False)
 
     def to_remote_path(self, path):
         rel_path = self.relpath(path)
         if rel_path.startswith(".."):
             raise ValueError("Invalid path!")
-        if rel_path == ".":
-            return self.remote_path
-        return os.path.join(self.remote_path, rel_path).replace("\\", "/")
+
+        if self.debug:
+            print(path, "-->", rel_path)
+
+        if os.path.isfile(path):
+            if not any(fnmatch(rel_path, p) for p in self.files_pattern):
+                raise ValueError("Not a handled file!")
+
+        rel_path = rel_path.replace('\\', '/')
+        dirname, filename = os.path.split(rel_path)
+        for source, target in self.dirs_mapping.items():
+            if re.match(source, dirname):
+                result = re.sub(source, target, rel_path)
+                result = os.path.normpath(os.path.join(self.remote_dir, result))
+                result = result.replace("\\", "/")
+                if self.debug:
+                    print("  ->", result)
+                return result
+
+        # path not found in dirmap, don't translate path
+        result = os.path.normpath(os.path.join(self.remote_dir, rel_path))
+        result = result.replace("\\", "/")
+        if self.debug:
+            print("  ->", result)
+        return result
 
     def relpath(self, path):
         return os.path.relpath(path, self.root)
