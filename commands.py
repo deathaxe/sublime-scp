@@ -2,6 +2,8 @@ import os
 import tarfile
 import tempfile
 
+from fnmatch import fnmatch
+
 import sublime
 import sublime_plugin
 
@@ -249,6 +251,8 @@ class ScpPutCommand(_ScpWindowCommand):
                     if conn.debug:
                         print(root, "->", arc_path)
                     for f in files:
+                        if conn.files_pattern and not any(fnmatch(f, p) for p in conn.files_pattern):
+                            continue
                         if conn.debug:
                             print("Adding", arc_path + f)
                         tar.add(os.path.join(root, f), arcname=arc_path + f)
