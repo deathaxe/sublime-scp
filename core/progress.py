@@ -59,7 +59,7 @@ class Progress(object):
             self.last_view = None
 
         if message:
-            active_view.set_status('_scp' , message)
+            active_view.set_status('_scp', message)
         else:
             active_view.erase_status('_scp')
 
