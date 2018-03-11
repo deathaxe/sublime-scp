@@ -236,7 +236,6 @@ class ScpPutCommand(_ScpWindowCommand):
         3. Untar the file on the remote host and delete it.
         """
         local_dir = commonpath.most(paths)
-        remote_dir = conn.to_remote_path(local_dir)
 
         # built temporary local tar-file
         file, local_tmp = tempfile.mkstemp(prefix="scp_")
@@ -244,21 +243,15 @@ class ScpPutCommand(_ScpWindowCommand):
 
         sublime.status_message("SCP: preparing upload ...")
         with tarfile.open(local_tmp, "w") as tar:
-
-            def tarfilter(tarinfo):
-                for f in ('.scp', '.git'):
-                    if f in tarinfo.path:
-                        return None
-                tarinfo.uid = tarinfo.gid = 0
-                tarinfo.uname = tarinfo.gname = "root"
-                return tarinfo
-
             for path in paths:
-                tar.add(
-                    path,
-                    arcname=os.path.relpath(path, local_dir),
-                    filter=tarfilter
-                )
+                for root, dirs, files in os.walk(path):
+                    arc_path = conn.to_remote_path(root) + '/'
+                    if conn.debug:
+                        print(root, "->", arc_path)
+                    for f in files:
+                        if conn.debug:
+                            print("Adding", arc_path + f)
+                        tar.add(os.path.join(root, f), arcname=arc_path + f)
 
         try:
             def progress(filename, progress):
@@ -271,7 +264,7 @@ class ScpPutCommand(_ScpWindowCommand):
 
             # untar on remote host and delete temporary archive
             sublime.status_message("SCP: extracting uploaded tarfile ...")
-            conn.plink("mkdir -p {0}; tar -C {0} -xf {1}; rm -f {1}".format(remote_dir, remote_tmp))
+            conn.plink("tar -C / -xf {0}; rm -f {0}".format(remote_tmp))
 
             msg = "SCP: Uploaded %s!" % local_dir
             sublime.status_message(msg)

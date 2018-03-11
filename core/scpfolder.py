@@ -68,6 +68,7 @@ def root_dir(file_name):
             path, name = os.path.split(path)
     return False
 
+
 class SCPFolder(SCPClient):
 
     def __init__(self, path):
@@ -99,16 +100,18 @@ class SCPFolder(SCPClient):
         if self.debug:
             print(path, "-->", rel_path)
 
+        rel_path = rel_path.replace('\\', '/')
+
         if os.path.isfile(path):
             if not any(fnmatch(rel_path, p) for p in self.files_pattern):
                 raise ValueError("Not a handled file!")
-
-        rel_path = rel_path.replace('\\', '/')
-        dirname, filename = os.path.split(rel_path)
+            dirname, filename = os.path.split(rel_path)
+        else:
+            dirname, filename = rel_path, ""
         for source, target in self.dirs_mapping.items():
             if re.match(source, dirname):
                 result = re.sub(source, target, rel_path)
-                result = os.path.normpath(os.path.join(self.remote_dir, result))
+                result = os.path.normpath(os.path.join(self.remote_dir, result, filename))
                 result = result.replace("\\", "/")
                 if self.debug:
                     print("  ->", result)
@@ -118,7 +121,7 @@ class SCPFolder(SCPClient):
         result = os.path.normpath(os.path.join(self.remote_dir, rel_path))
         result = result.replace("\\", "/")
         if self.debug:
-            print("  ->", result)
+            print("  ==", result)
         return result
 
     def relpath(self, path):
