@@ -110,7 +110,7 @@ class SCPFolder(SCPClient):
             dirname, filename = rel_path, ""
         for source, target in self.dirs_mapping.items():
             if re.match(source, dirname):
-                result = re.sub(source, target, rel_path)
+                result = re.sub(source, target, dirname)
                 result = os.path.normpath(os.path.join(self.remote_dir, result, filename))
                 result = result.replace("\\", "/")
                 if self.debug:
