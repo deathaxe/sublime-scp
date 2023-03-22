@@ -1,7 +1,7 @@
 import sublime
 
-class Progress(object):
 
+class Progress(object):
     def __init__(self, message):
         self.message = message
         self.addend = 1
@@ -37,7 +37,7 @@ class Progress(object):
         before = i % self.size
         after = (self.size - 1) - before
 
-        self._paint('[%s➖%s] %s' % (' ' * before, ' ' * after, self.message))
+        self._paint("[%s➖%s] %s" % (" " * before, " " * after, self.message))
 
         if not after:
             self.addend = -1
@@ -55,13 +55,13 @@ class Progress(object):
         active_view = self.window.active_view()
 
         if self.last_view is not None and active_view != self.last_view:
-            self.last_view.erase_status('_scp')
+            self.last_view.erase_status("_scp")
             self.last_view = None
 
         if message:
-            active_view.set_status('_scp', message)
+            active_view.set_status("_scp", message)
         else:
-            active_view.erase_status('_scp')
+            active_view.erase_status("_scp")
 
         if self.last_view is None:
             self.last_view = active_view

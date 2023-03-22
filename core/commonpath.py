@@ -61,7 +61,9 @@ class CommonPath(object):
         self.most_common = self._most_common()
 
     def _most_common(self):
-        split_paths = [re.split('[\\\\/]+', p) for p in self.paths]  # Allow both `\` and `/` as separator
+        split_paths = [
+            re.split("[\\\\/]+", p) for p in self.paths
+        ]  # Allow both `\` and `/` as separator
         # Dict of list of unpacked paths with path depth level as keys
         # e.g. {0: ['', '', ''],
         #       1: ['/home', '/home', '/usr'],
@@ -69,7 +71,9 @@ class CommonPath(object):
         levels = defaultdict(list)
         for split_path in split_paths:
             for level, ele in enumerate(split_path):
-                levels[level].append(sep.join(split_path[0:level + 1]))  # Return with the system's separator
+                levels[level].append(
+                    sep.join(split_path[0 : level + 1])
+                )  # Return with the system's separator
 
         # List of tuples (most common path, count) by increasing path depth
         # e.g. [('', 3),

@@ -30,6 +30,8 @@ class TaskQueue(Thread):
         super().__init__(daemon=True)
         self.queue = Queue()
         self.active_task = None
+        self.running = False
+        self._block = self.queue.mutex
 
     def __del__(self):
         self.running = False

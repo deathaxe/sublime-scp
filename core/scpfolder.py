@@ -70,7 +70,6 @@ def root_dir(file_name):
 
 
 class SCPFolder(SCPClient):
-
     def __init__(self, path):
         root = root_dir(path)
         if not root:
@@ -84,7 +83,7 @@ class SCPFolder(SCPClient):
                 client.get("user", "guest"),
                 client.get("passwd", None),
                 client.get("hostkey", None),
-                root
+                root,
             )
             self.remote_dir = client.get("dir", "/")
             self.files_pattern = client.get("files", [])
@@ -100,7 +99,7 @@ class SCPFolder(SCPClient):
         if self.debug:
             print(path, "-->", rel_path)
 
-        rel_path = rel_path.replace('\\', '/')
+        rel_path = rel_path.replace("\\", "/")
 
         if os.path.isfile(path):
             if not any(fnmatch(rel_path, p) for p in self.files_pattern):
@@ -110,7 +109,7 @@ class SCPFolder(SCPClient):
             dirname, filename = rel_path, ""
         for source, target in self.dirs_mapping.items():
             if re.match(source, dirname):
-                result = re.sub(source, target, dirname)
+                result = re.sub(source, target, rel_path)
                 result = os.path.normpath(os.path.join(self.remote_dir, result, filename))
                 result = result.replace("\\", "/")
                 if self.debug:
@@ -128,14 +127,13 @@ class SCPFolder(SCPClient):
         return os.path.relpath(path, self.root)
 
     def is_root(self, path):
-        return self.relpath(path) == '.'
+        return self.relpath(path) == "."
 
     def is_child(self, path):
         return not self.relpath(path).startswith("..")
 
     def rename(self, path, newpath):
-        return super().rename(
-            self.to_remote_path(path), self.to_remote_path(newpath))
+        return super().rename(self.to_remote_path(path), self.to_remote_path(newpath))
 
     def remove(self, path):
         return super().remove(self.to_remote_path(path))

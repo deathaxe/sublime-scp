@@ -29,13 +29,9 @@ TEMPLATE = """
 
 
 class _ScpWindowCommand(sublime_plugin.WindowCommand):
-
     def is_visible(self, paths=None):
         """Menu item is visible, if connection is established."""
-        return any(
-            scpfolder.is_connected(path)
-            for path in self.ensure_paths(paths)
-        )
+        return any(scpfolder.is_connected(path) for path in self.ensure_paths(paths))
 
     def run(self, paths=None):
         task.call_func(self.executor, self.ensure_paths(paths))
@@ -50,23 +46,19 @@ class _ScpWindowCommand(sublime_plugin.WindowCommand):
 
 
 class ScpMapToRemoteCommand(_ScpWindowCommand):
-
     def is_visible(self, paths=None):
         """Menu is visible if no mapping exists already."""
-        return not any(
-            scpfolder.root_dir(path)
-            for path in self.ensure_paths(paths)
-        )
+        return not any(scpfolder.root_dir(path) for path in self.ensure_paths(paths))
 
     def run(self, paths=None):
         for path in self.ensure_paths(paths):
-            self.window.run_command("open_file", {
-                "file": os.path.join(path, ".scp"), "contents": TEMPLATE})
+            self.window.run_command(
+                "open_file", {"file": os.path.join(path, ".scp"), "contents": TEMPLATE}
+            )
             self.window.active_view().assign_syntax("JSON.sublime-syntax")
 
 
 class ScpConnectCommand(_ScpWindowCommand):
-
     def __init__(self, window):
         super().__init__(window)
         self.thread = None
@@ -95,7 +87,6 @@ class ScpConnectCommand(_ScpWindowCommand):
 
 
 class ScpDisconnectCommand(_ScpWindowCommand):
-
     def run(self, paths=None):
         for path in self.ensure_paths(paths):
             scpfolder.disconnect(path)
@@ -103,7 +94,6 @@ class ScpDisconnectCommand(_ScpWindowCommand):
 
 
 class ScpCancelCommand(_ScpWindowCommand):
-
     def is_enabled(self, paths=None):
         """Enable command if an operation is in progress."""
         return task.busy()
@@ -120,11 +110,10 @@ class ScpCancelCommand(_ScpWindowCommand):
 
 
 class ScpGetCommand(_ScpWindowCommand):
-
     def executor(self, paths):
         groups = {}
         for path in paths:
-            if any(f in path for f in ('.scp', '.git')):
+            if any(f in path for f in (".scp", ".git")):
                 continue
             try:
                 conn = scpfolder.connection(path)
@@ -167,13 +156,13 @@ class ScpGetCommand(_ScpWindowCommand):
             # pack remote files into a tar archive
             sublime.status_message("SCP: preparing download ...")
             conn.plink("tar -C {0} -cf {1} .".format(remote_dir, remote_tmp))
-        except SCPCommandError as err:
+        except SCPCommandError:
             pass
 
         try:
+
             def progress(filename, progress):
-                sublime.status_message(
-                    "SCP: downloading [{}%] ...".format(progress))
+                sublime.status_message("SCP: downloading [{}%] ...".format(progress))
 
             # download tar archive
             super(conn.__class__, conn).getfile(remote_tmp, local_tmp, progress)
@@ -204,11 +193,10 @@ class ScpGetCommand(_ScpWindowCommand):
 
 
 class ScpPutCommand(_ScpWindowCommand):
-
     def executor(self, paths):
         groups = {}
         for path in paths:
-            if any(f in path for f in ('.scp', '.git')):
+            if any(f in path for f in (".scp", ".git")):
                 continue
             try:
                 conn = scpfolder.connection(path)
@@ -247,20 +235,24 @@ class ScpPutCommand(_ScpWindowCommand):
         with tarfile.open(local_tmp, "w") as tar:
             for path in paths:
                 for root, dirs, files in os.walk(path):
-                    arc_path = conn.to_remote_path(root) + '/'
+                    arc_path = conn.to_remote_path(root) + "/"
                     if conn.debug:
                         print(root, "->", arc_path)
                     for f in files:
-                        if conn.files_pattern and not any(fnmatch(f, p) for p in conn.files_pattern):
+                        if conn.files_pattern and not any(
+                            fnmatch(f, p) for p in conn.files_pattern
+                        ):
                             continue
                         if conn.debug:
                             print("Adding", arc_path + f)
                         tar.add(os.path.join(root, f), arcname=arc_path + f)
 
         try:
+
             def progress(filename, progress):
                 sublime.status_message(
-                    "SCP: uploading tarfile [{}%] ...".format(progress))
+                    "SCP: uploading tarfile [{}%] ...".format(progress)
+                )
 
             # upload using pscp
             remote_tmp = "/tmp/" + os.path.basename(local_tmp)
@@ -283,7 +275,6 @@ class ScpPutCommand(_ScpWindowCommand):
 
 
 class ScpDelCommand(_ScpWindowCommand):
-
     def executor(self, paths):
         for path in paths:
             try:
@@ -297,7 +288,6 @@ class ScpDelCommand(_ScpWindowCommand):
 
 
 class NewFileNameInputHandler(sublime_plugin.TextInputHandler):
-
     def __init__(self, view):
         self.view = view
 
@@ -319,7 +309,6 @@ class NewFileNameInputHandler(sublime_plugin.TextInputHandler):
 
 
 class ScpRenameFileCommand(_ScpWindowCommand):
-
     def run(self, new_name):
         task.call_func(self.executor, new_name)
 
@@ -352,6 +341,5 @@ class ScpRenameFileCommand(_ScpWindowCommand):
 
 
 class ScpEventListener(sublime_plugin.EventListener):
-
     def on_post_save(self, view):
         view.window().run_command("scp_put")

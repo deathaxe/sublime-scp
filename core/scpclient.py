@@ -17,7 +17,6 @@ class SCPCommandError(SCPException):
 
 
 class SCPClient(object):
-
     def __init__(self, host, port=22, user=None, passwd=None, hostkey=None, root=None):
         """Initialize an SCPClient object.
 
@@ -58,13 +57,14 @@ class SCPClient(object):
                 return
             except SCPCommandError as err:
                 # try to find hostkey in error message
-                match = re.search(r'((?:[0-9a-f]{2}:){15,}[0-9a-f]{2})', str(err))
+                match = re.search(r"((?:[0-9a-f]{2}:){15,}[0-9a-f]{2})", str(err))
                 if not match:
                     raise SCPNotConnectedError("SCP: connection failed!")
                 # hostkey auto-acceptance not set
                 if self.hostkey != "*":
                     raise SCPNotConnectedError(
-                        "SCP: invalid fingerprint %s!" % match.group(1))
+                        "SCP: invalid fingerprint %s!" % match.group(1)
+                    )
                 self.hostkey = match.group(1)
                 print("SCP: using unknown host fingerprint", self.hostkey)
                 args = ["-hostkey", self.hostkey]
@@ -75,7 +75,7 @@ class SCPClient(object):
         return "%s@%s:%s" % (self.user, self.host, remote)
 
     def exec(self, args):
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         else:
@@ -85,7 +85,8 @@ class SCPClient(object):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             startupinfo=startupinfo,
-            universal_newlines=True)
+            universal_newlines=True,
+        )
 
     def plink(self, *args):
         """Run remote shell command using plink.
@@ -124,14 +125,14 @@ class SCPClient(object):
             self.proc = self.exec(self._pscp + list(args))
             if callable(on_progress):
                 while True:
-                    data = self.proc.stdout.readline(2**16)
+                    data = self.proc.stdout.readline(2 ** 16)
                     if not bool(data):
                         return
 
                     # Parse scp's output to get current file name being transfered.
                     # cp1250.py   | 4 kB |   4.0 kB/s | ETA: 00:00:02 |  29%
                     try:
-                        file, percent = re.match(r'\s*(\w+).+?(\d+)%', data).groups()
+                        file, percent = re.match(r"\s*(\w+).+?(\d+)%", data).groups()
                     except (AttributeError, ValueError):
                         pass
                     else:
@@ -149,8 +150,9 @@ class SCPClient(object):
             self.proc.terminate()
 
     def rename(self, remote, remote_new):
-        return self.plink("mkdir -p %s; mv %s %s" % (
-            os.path.split(remote_new)[0], remote, remote_new))
+        return self.plink(
+            "mkdir -p %s; mv %s %s" % (os.path.split(remote_new)[0], remote, remote_new)
+        )
 
     def remove(self, remote):
         if isinstance(remote, str):

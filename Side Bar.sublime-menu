@@ -1,5 +1,5 @@
 [
-    { "caption": "-" },
+    { "caption": "-", "id": "folder_commands" },
     {
         "caption": "SCP",
         "children":
